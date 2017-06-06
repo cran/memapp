@@ -1,0 +1,15 @@
+98761a0873b1b7cd424ec0d3200cdb72 *DESCRIPTION
+9b77fb642f9c6b09652ceff5c76aed86 *NAMESPACE
+a95882c10760fc772bdf7c42fc721a87 *R/flucyl.R
+3676469b5f08c5ff7cda1a978de99c61 *R/runmemapp.R
+dff6b9686ea185e8a5266e17e507c921 *README.md
+c403a721636e764e1ac700b537fee594 *data/flucyl.rda
+9463f923a6f5eab357d6bfa90f784836 *inst/shinyapp/helpers.R
+27479795b05aaee7b3c8f8e525d62abe *inst/shinyapp/server.R
+262a046f1b5068286a0189a441fc31e2 *inst/shinyapp/ui.R
+cefc20232703e5e3c24efd5f50d75e26 *inst/shinyapp/www/GitHub_Logo.png
+562b6641c06d50f5744590fedb5a6b02 *inst/shinyapp/www/ajaxloaderq.gif
+a927ddb68f672b6df5ce80080da8e19a *inst/shinyapp/www/busyIndicator.css
+f9b56f57c4c6cd1bd0a79801779bbfde *inst/shinyapp/www/logoiecscyl.gif
+5cf98b319859a3d0a52fed35a9a22a93 *man/flucyl.Rd
+2fcfc8210cf73bfc13e26e6704cde9c4 *man/runmemapp.Rd
