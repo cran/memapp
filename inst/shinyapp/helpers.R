@@ -28,10 +28,10 @@ generate_palette <- function(i.number.series=NA,
   if (is.null(i.colEpidemic)) i.colEpidemic<-"default" else if (is.na(i.colEpidemic)) i.colEpidemic<-"default"
   
   # First four are simple colors
-  if (i.colObservedLines=="default") i.colObservedLines<-params.default$colObservedLines else i.colObservedLines<-col2hex(i.colObservedLines)
-  if (i.colObservedPoints=="default") i.colObservedPoints<-params.default$colObservedPoints else i.colObservedPoints<-col2hex(i.colObservedPoints)
-  if (i.colEpidemicStart=="default") i.colEpidemicStart<-params.default$colEpidemicStart else i.colEpidemicStart<-col2hex(i.colEpidemicStart)
-  if (i.colEpidemicStop=="default") i.colEpidemicStop<-params.default$colEpidemicStop else i.colEpidemicStop<-col2hex(i.colEpidemicStop)
+  if (i.colObservedLines=="default") i.colObservedLines<-params.default$colObservedLines else i.colObservedLines<-rgb(t(col2rgb(i.colObservedLines))/255)
+  if (i.colObservedPoints=="default") i.colObservedPoints<-params.default$colObservedPoints else i.colObservedPoints<-rgb(t(col2rgb(i.colObservedPoints))/255)
+  if (i.colEpidemicStart=="default") i.colEpidemicStart<-params.default$colEpidemicStart else i.colEpidemicStart<-rgb(t(col2rgb(i.colEpidemicStart))/255)
+  if (i.colEpidemicStop=="default") i.colEpidemicStop<-params.default$colEpidemicStop else i.colEpidemicStop<-rgb(t(col2rgb(i.colEpidemicStop))/255)
   # Fifth to Seventh are palettes that I must create
   if (i.colThresholds=="default") i.colThresholds<-params.default$colThresholds else i.colThresholds<-brewer.pal(7,i.colThresholds)[2:6]
   if (i.colSeasons=="default") i.colSeasons<-params.default$colSeasons
@@ -1102,9 +1102,15 @@ read.data.access<-function(i.file, i.file.name=NA, i.dataset=NA){
           filecsv <- tempfile()
           system(paste('mdb-export -b strip', shQuote(i.file), shQuote(i.dataset), '>', filecsv))
           # detect encoding
-          encodings<-readr::guess_encoding(filecsv, n_max = -1)
-          encodings<-encodings[order(encodings$confidence,decreasing = T),]
-          myencoding<-as.character(encodings$encoding[1])
+          # encodings<-readr::guess_encoding(filecsv, n_max = -1)
+          # encodings<-encodings[order(encodings$confidence,decreasing = T),]
+          # myencoding<-as.character(encodings$encoding[1])
+          lines <- paste(readLines(filecsv, n = -1),collapse="")
+          if (stringi::stri_enc_isascii(lines)) {
+            myencoding<-"ASCII"
+          }else{
+            myencoding <- stringi::stri_enc_detect(lines)[[1]]$`Encoding`[1]
+          }
           # detect separator and decimal separator
           firstline<-readLines(filecsv,1,encoding=myencoding)
           separators<-c(',',';','\t','\\|')
@@ -1155,9 +1161,15 @@ read.data.text<-function(i.file, i.file.name=NA, i.dataset=NA){
     n.datasets<-length(datasets)
     # text files
     # detect encoding
-    temp1<-readr::guess_encoding(i.file, n_max = -1)
-    temp1<-temp1[order(temp1$confidence,decreasing = T),]
-    myencoding<-as.character(temp1$encoding[1])
+    # temp1<-readr::guess_encoding(i.file, n_max = -1)
+    # temp1<-temp1[order(temp1$confidence,decreasing = T),]
+    # myencoding<-as.character(temp1$encoding[1])
+    lines <- paste(readLines(i.file, n = -1),collapse="")
+    if (stringi::stri_enc_isascii(lines)) {
+      myencoding<-"ASCII"
+    }else{
+      myencoding <- stringi::stri_enc_detect(lines)[[1]]$`Encoding`[1]
+    }
     cat("read_data> Text file detected: ",filenameextension," (encoding: ",myencoding,")\n",sep="")
     if (is.na(i.dataset)){
       datasetread<-NULL
@@ -1398,14 +1410,16 @@ fixplotly<-function(i.plotly,i.labels,i.lines,i.points,i.xname,i.yname,i.weeklab
   return(i.plotly)
 }
 
-
-
 fixed_color_bar <- function (color = "lightgray", fixedWidth=150, alpha=0.5,...){
-  formatter("span", style = function(x) ifelse(is.na(x),
-                                               style(color = "white"),
-                                               style(display = "inline-block", direction = "rtl", `border-radius` = "4px", 
-                                                     `padding-right` = "2px", `background-color` = csscolor(add.alpha.to.color(color, alpha)), 
-                                                     width = paste(fixedWidth*proportion(x, na.rm = T),"px",sep=""), ...)
+  formattable::formatter("span", style = function(x) ifelse(is.na(x),
+                                                            formattable::style(color = "white"),
+                                                            formattable::style(display = "inline-block", 
+                                                                               direction = "rtl", 
+                                                                               `border-radius` = "4px", 
+                                                                               `padding-right` = "2px", 
+                                                                               `background-color` = formattable::csscolor(add.alpha.to.color(color, alpha)), 
+                                                                               width = paste(fixedWidth*formattable::proportion(x, na.rm = T), "px", sep=""), 
+                                                                               ...)
   )
   )
 }

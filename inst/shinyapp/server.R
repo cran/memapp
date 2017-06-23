@@ -1,3 +1,4 @@
+options(warn =-1)
 source("helpers.R")
 set.rzip()
 
@@ -1315,7 +1316,7 @@ output$tbdEvolution <- renderUI({
                 tabPanel("Start",plotlyOutput("tbdEstart", width ="100%", height ="100%")),
                 tabPanel("Percentage", plotlyOutput("tbdEpercentage", width ="100%", height ="100%")),
                 tabPanel("Thresholds",plotlyOutput("tbdEthresholds", width ="100%", height ="100%")),
-                tabPanel("Scheme", formattableOutput("tbdEscheme")),
+                tabPanel("Scheme", formattable::formattableOutput("tbdEscheme")),
                 tabPanel("Details", 
                          DT::dataTableOutput("tbdEdetails"),
                          fluidRow(
@@ -1543,14 +1544,16 @@ output$tbdEthresholds <- renderPlotly({
 #   datashow
 # }, extensions = 'Buttons', options = list(scrollX = TRUE, scrollY = '600px', paging = FALSE, dom = 'Bfrtip', buttons = c('csv', 'excel'), columnDefs=list(list(targets="_all", class="dt-right"))))
 
-output$tbdEscheme <- renderFormattable({
+output$tbdEscheme <- formattable::renderFormattable({
   dataevolution <- data_evolution()
   if(is.null(dataevolution)){
     datashow<-NULL
   }else{
     temp1<-dataevolution$evolution.seasons
-    datashow<-formattable(temp1, apply(temp1, 2, 
-       function(noxneeded) formatter("span", style = x ~ style(color = ifelse(x, "green", "red")), x ~ icontext(ifelse(x, "ok", "remove"), ifelse(x, "Yes", "No"))))
+    datashow<-formattable::formattable(temp1, apply(temp1, 2, 
+       function(noxneeded) formattable::formatter("span", 
+                                                  style = x ~ formattable::style(color = ifelse(x, "green", "red")), 
+                                                  x ~ formattable::icontext(ifelse(x, "ok", "remove"), ifelse(x, "Yes", "No"))))
     )
   }
   datashow
@@ -1619,7 +1622,7 @@ output$tbdStability <- renderUI({
                 tabPanel("Percentage", plotlyOutput("tbdSpercentage", width ="100%", height ="100%")),
                 tabPanel("Thresholds",plotlyOutput("tbdSthresholds", width ="100%", height ="100%")),
                 #tabPanel("Scheme", DT::dataTableOutput("tbdSscheme")),
-                tabPanel("Scheme", formattableOutput("tbdSscheme")),
+                tabPanel("Scheme", formattable::formattableOutput("tbdSscheme")),
                 tabPanel("Details", 
                          DT::dataTableOutput("tbdSdetails"),
                          fluidRow(
@@ -1832,14 +1835,16 @@ output$tbdSthresholds <- renderPlotly({
 #   datashow
 # }, extensions = 'Buttons', options = list(scrollX = TRUE, scrollY = '600px', paging = FALSE, dom = 'Bfrtip', buttons = c('csv', 'excel'), columnDefs=list(list(targets="_all", class="dt-right"))))
 
-output$tbdSscheme <- renderFormattable({
+output$tbdSscheme <- formattable::renderFormattable({
   datastability <- data_stability()
   if(is.null(datastability)){
     datashow<-NULL
   }else{
     temp1<-datastability$stability.seasons
-    datashow<-formattable(temp1, apply(temp1, 2,
-      function(noxneeded) formatter("span", style = x ~ style(color = ifelse(x, "green", "red")), x ~ icontext(ifelse(x, "ok", "remove"), ifelse(x, "Yes", "No"))))
+    datashow<-formattable::formattable(temp1, apply(temp1, 2,
+      function(noxneeded) formattable::formatter("span", 
+                                                 style = x ~ formattable::style(color = ifelse(x, "green", "red")), 
+                                                 x ~ formattable::icontext(ifelse(x, "ok", "remove"), ifelse(x, "Yes", "No"))))
     )
   }
   datashow
@@ -2307,7 +2312,7 @@ output$tbmGoodnessModel <- renderUI({
   else
     tabsetPanel(tabPanel("Indicators", uiOutput("tbmGoodnessModelSummary")),
                 tabPanel("Detailed", 
-                         formattableOutput("tbmGoodnessModelDetail1"),
+                         formattable::formattableOutput("tbmGoodnessModelDetail1"),
                          fluidRow(
                            column(8),
                            column(2,
@@ -2323,7 +2328,7 @@ output$tbmGoodnessModel <- renderUI({
                          ),
                 tabPanel("Intensity", uiOutput("tbmGoodnessModelIntensity")),
                 tabPanel("Detailed", 
-                         formattableOutput("tbmGoodnessModelDetail2"),
+                         formattable::formattableOutput("tbmGoodnessModelDetail2"),
                          fluidRow(
                            column(8),
                            column(2,
@@ -2356,14 +2361,14 @@ output$tbmGoodnessModelSummary <- renderUI({
   }
 })
 
-output$tbmGoodnessModelDetail1<-renderFormattable({
+output$tbmGoodnessModelDetail1 <- formattable::renderFormattable({
   good <- data_good_model()
   if(!is.null(good)){
     temp1<-as.data.frame(good$validity.data)
     temp1$Total<-good$results
     temp1<-as.data.frame(t(temp1))[c("Sensitivity","Specificity","Positive predictive value","Negative predictive value","Percent agreement","Matthews correlation coefficient")]
     # temp1[is.na(temp1)]<--1
-    good.table<-formattable(temp1, list(
+    good.table<-formattable::formattable(temp1, list(
       # area(col = names(temp1)[1:4]) ~ normalize_bar("#FFBBFF", 0.2),
       # area(col = names(temp1)[5:6]) ~ normalize_bar("#A5DBEB", 0.2)
       "Sensitivity" = fixed_color_bar(color="#FFBBFF",fixedWidth = 100, alpha=0.5),
@@ -2375,7 +2380,7 @@ output$tbmGoodnessModelDetail1<-renderFormattable({
     ), digits = 2, format = "f")    
   }else{
     temp1<-data.frame(Error="Number of columns must be greater than 2")
-    good.table<-formattable(temp1)
+    good.table<-formattable::formattable(temp1)
   }
   good.table
 })
@@ -2448,7 +2453,7 @@ output$tbmGoodnessModelIntensity <- renderUI({
   }
 })
 
-output$tbmGoodnessModelDetail2<-renderFormattable({
+output$tbmGoodnessModelDetail2 <- formattable::renderFormattable({
   good <- data_good_model()
   if(!is.null(good)){
     temp1 <- good$peaks.data
@@ -2457,17 +2462,23 @@ output$tbmGoodnessModelDetail2<-renderFormattable({
     lvl.n<-as.character(c(1:5))
     lvl.t<-c("Baseline","Low","Medium","High","Very high")
     lvl.c<-c("#c6dbef","#9ecae1","#6baed6","#3182bd","#08519c")
-    peaks.data<-formattable(temp1, list(
-      Level = formatter("span", style = x ~ style(color = ifelse(is.na(x),"grey",ifelse(x==lvl.n[1], lvl.c[1] , ifelse(x==lvl.n[2], lvl.c[2], ifelse(x==lvl.n[3], lvl.c[3], ifelse(x==lvl.n[4], lvl.c[4], lvl.c[5]))))), font.weight = "bold")),
-      Description = formatter("span", style = x ~ style(color = ifelse(is.na(x),"grey",ifelse(x==lvl.t[1], lvl.c[1] , ifelse(x==lvl.t[2], lvl.c[2], ifelse(x==lvl.t[3], lvl.c[3], ifelse(x==lvl.t[4], lvl.c[4], lvl.c[5]))))), font.weight = "bold")),
-      "Epidemic threshold"=formatter("span", style = style(color = thr.c[1], font.weight = "bold")),
-      "Medium threshold"=formatter("span", style = style(color = thr.c[2], font.weight = "bold")),
-      "High threshold"=formatter("span", style = style(color = thr.c[3], font.weight = "bold")),
-      "Very high threshold"=formatter("span", style = style(color = thr.c[4], font.weight = "bold"))
+    peaks.data<-formattable::formattable(temp1, list(
+      Level = formattable::formatter("span", 
+                                     style = x ~ formattable::style(color = ifelse(is.na(x),"grey",ifelse(x==lvl.n[1], lvl.c[1] , ifelse(x==lvl.n[2], lvl.c[2], ifelse(x==lvl.n[3], lvl.c[3], ifelse(x==lvl.n[4], lvl.c[4], lvl.c[5]))))), font.weight = "bold")),
+      Description = formattable::formatter("span", 
+                              style = x ~ formattable::style(color = ifelse(is.na(x),"grey",ifelse(x==lvl.t[1], lvl.c[1] , ifelse(x==lvl.t[2], lvl.c[2], ifelse(x==lvl.t[3], lvl.c[3], ifelse(x==lvl.t[4], lvl.c[4], lvl.c[5]))))), font.weight = "bold")),
+      "Epidemic threshold"=formattable::formatter("span", 
+                                                  style = formattable::style(color = thr.c[1], font.weight = "bold")),
+      "Medium threshold"=formattable::formatter("span", 
+                                   style = formattable::style(color = thr.c[2], font.weight = "bold")),
+      "High threshold"=formattable::formatter("span", 
+                                              style = formattable::style(color = thr.c[3], font.weight = "bold")),
+      "Very high threshold"=formattable::formatter("span", 
+                                                   style = formattable::style(color = thr.c[4], font.weight = "bold"))
     ), digits = 2, format = "f")
   }else{
     temp1<-data.frame(Error="Number of columns must be greater than 2")
-    peaks.data<-formattable(temp1)
+    peaks.data<-formattable::formattable(temp1)
   }
   peaks.data
 })
@@ -2527,7 +2538,7 @@ output$tbmGoodnessGlobal <- renderUI({
   else
     tabsetPanel(tabPanel("Indicators", uiOutput("tbmGoodnessGlobalSummary")),
                 tabPanel("Detailed", 
-                         formattableOutput("tbmGoodnessGlobalDetail1"),
+                         formattable::formattableOutput("tbmGoodnessGlobalDetail1"),
                          fluidRow(
                            column(8),
                            column(2,
@@ -2543,7 +2554,7 @@ output$tbmGoodnessGlobal <- renderUI({
                          ),
                 tabPanel("Intensity", uiOutput("tbmGoodnessGlobalIntensity")),
                 tabPanel("Detailed", 
-                         formattableOutput("tbmGoodnessGlobalDetail2"),
+                         formattable::formattableOutput("tbmGoodnessGlobalDetail2"),
                          fluidRow(
                            column(8),
                            column(2,
@@ -2576,14 +2587,14 @@ output$tbmGoodnessGlobalSummary <- renderUI({
   }
 })
 
-output$tbmGoodnessGlobalDetail1<-renderFormattable({
+output$tbmGoodnessGlobalDetail1 <- formattable::renderFormattable({
   good <- data_good_global()
   if(!is.null(good)){
     temp1<-as.data.frame(good$validity.data)
     temp1$Total<-good$results
     temp1<-as.data.frame(t(temp1))[c("Sensitivity","Specificity","Positive predictive value","Negative predictive value","Percent agreement","Matthews correlation coefficient")]
     # temp1[is.na(temp1)]<--1
-    good.table<-formattable(temp1, list(
+    good.table<-formattable::formattable(temp1, list(
       # area(col = names(temp1)[1:4]) ~ normalize_bar("#FFBBFF", 0.2),
       # area(col = names(temp1)[5:6]) ~ normalize_bar("#A5DBEB", 0.2)
       "Sensitivity" = fixed_color_bar(color="#FFBBFF",fixedWidth = 100, alpha=0.5),
@@ -2595,7 +2606,7 @@ output$tbmGoodnessGlobalDetail1<-renderFormattable({
     ), digits = 2, format = "f")    
   }else{
     temp1<-data.frame(Error="Number of columns must be greater than 2")
-    good.table<-formattable(temp1)
+    good.table<-formattable::formattable(temp1)
   }
   good.table
 })
@@ -2668,7 +2679,7 @@ output$tbmGoodnessGlobalIntensity <- renderUI({
   }
 })
 
-output$tbmGoodnessGlobalDetail2<-renderFormattable({
+output$tbmGoodnessGlobalDetail2 <- formattable::renderFormattable({
   good <- data_good_global()
   if(!is.null(good)){
     temp1 <- good$peaks.data
@@ -2677,17 +2688,23 @@ output$tbmGoodnessGlobalDetail2<-renderFormattable({
     lvl.n<-as.character(c(1:5))
     lvl.t<-c("Baseline","Low","Medium","High","Very high")
     lvl.c<-c("#c6dbef","#9ecae1","#6baed6","#3182bd","#08519c")
-    peaks.data<-formattable(temp1, list(
-      Level = formatter("span", style = x ~ style(color = ifelse(is.na(x),"grey",ifelse(x==lvl.n[1], lvl.c[1] , ifelse(x==lvl.n[2], lvl.c[2], ifelse(x==lvl.n[3], lvl.c[3], ifelse(x==lvl.n[4], lvl.c[4], lvl.c[5]))))), font.weight = "bold")),
-      Description = formatter("span", style = x ~ style(color = ifelse(is.na(x),"grey",ifelse(x==lvl.t[1], lvl.c[1] , ifelse(x==lvl.t[2], lvl.c[2], ifelse(x==lvl.t[3], lvl.c[3], ifelse(x==lvl.t[4], lvl.c[4], lvl.c[5]))))), font.weight = "bold")),
-      "Epidemic threshold"=formatter("span", style = style(color = thr.c[1], font.weight = "bold")),
-      "Medium threshold"=formatter("span", style = style(color = thr.c[2], font.weight = "bold")),
-      "High threshold"=formatter("span", style = style(color = thr.c[3], font.weight = "bold")),
-      "Very high threshold"=formatter("span", style = style(color = thr.c[4], font.weight = "bold"))
+    peaks.data<-formattable::formattable(temp1, list(
+      Level = formattable::formatter("span", 
+                                     style = x ~ formattable::style(color = ifelse(is.na(x),"grey",ifelse(x==lvl.n[1], lvl.c[1] , ifelse(x==lvl.n[2], lvl.c[2], ifelse(x==lvl.n[3], lvl.c[3], ifelse(x==lvl.n[4], lvl.c[4], lvl.c[5]))))), font.weight = "bold")),
+      Description = formattable::formatter("span", 
+                                           style = x ~ formattable::style(color = ifelse(is.na(x),"grey",ifelse(x==lvl.t[1], lvl.c[1] , ifelse(x==lvl.t[2], lvl.c[2], ifelse(x==lvl.t[3], lvl.c[3], ifelse(x==lvl.t[4], lvl.c[4], lvl.c[5]))))), font.weight = "bold")),
+      "Epidemic threshold"=formattable::formatter("span", 
+                                                  style = formattable::style(color = thr.c[1], font.weight = "bold")),
+      "Medium threshold"=formattable::formatter("span", 
+                                                style = formattable::style(color = thr.c[2], font.weight = "bold")),
+      "High threshold"=formattable::formatter("span", 
+                                              style = formattable::style(color = thr.c[3], font.weight = "bold")),
+      "Very high threshold"=formattable::formatter("span", 
+                                                   style = formattable::style(color = thr.c[4], font.weight = "bold"))
     ), digits = 2, format = "f")
   }else{
     temp1<-data.frame(Error="Number of columns must be greater than 2")
-    peaks.data<-formattable(temp1)
+    peaks.data<-formattable::formattable(temp1)
   }
   peaks.data
 })
@@ -2746,7 +2763,7 @@ output$tbmOptimize <- renderUI({
   }else{
     tabsetPanel(tabPanel("Indicators", uiOutput("tbmOptimizeSummary")),
                 tabPanel("Detailed", 
-                         formattableOutput("tbmOptimizeDetail"),
+                         formattable::formattableOutput("tbmOptimizeDetail"),
                          fluidRow(
                            column(8),
                            column(2,
@@ -2785,14 +2802,14 @@ output$tbmOptimizeSummary <- renderUI({
   }
 })
 
-output$tbmOptimizeDetail<-renderFormattable({
+output$tbmOptimizeDetail <- formattable::renderFormattable({
   dataoptim <- data_optim()
   if(!is.null(dataoptim)){
     temp1<-dataoptim$roc.data[c("value","sensitivity","specificity","positive.predictive.value","negative.predictive.value","percent.agreement","matthews.correlation.coefficient")]
     names(temp1)<-c("Parameter","Sensitivity","Specificity","Positive predictive value","Negative predictive value","Percent agreement","Matthews correlation coefficient")
     rownames(temp1)<-NULL
     # temp1[is.na(temp1)]<--1
-    roca.table<-formattable(temp1, list(
+    roca.table<-formattable::formattable(temp1, list(
       # area(col = names(roca.table)[2:5]) ~ normalize_bar("#FFBBFF", 0.2),
       # area(col = names(roca.table)[6:7]) ~ normalize_bar("#A5DBEB", 0.2)
       "Sensitivity" = fixed_color_bar(color="#FFBBFF",fixedWidth = 100, alpha=0.5),
@@ -2804,7 +2821,7 @@ output$tbmOptimizeDetail<-renderFormattable({
     ), digits = 2, format = "f")
   }else{
     temp1<-data.frame(Error="Number of columns must be greater than 2",row.names = NULL)
-    roca.table<-formattable(temp1)
+    roca.table<-formattable::formattable(temp1)
   }
   roca.table
 })

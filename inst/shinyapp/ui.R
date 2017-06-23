@@ -1,24 +1,21 @@
 library("shiny")
 library("shinythemes")
 library("shinydashboard")
+library("shinyBS")
 library("shinyjs")
 library("RColorBrewer")
-library("shinyBS")
-library("plotly")
-library("ggplot2")
 library("ggthemes")
 library("reshape2")
-library("R.utils")
 library("openxlsx")
 library("readxl")
 library("stringr")
-library("readr")
+library("stringi")
 library("DT")
-library("gplots")
 library("RODBC")
-library("mixtools")
-library("mem")
 library("formattable")
+library("ggplot2")
+library("plotly")
+library("mem")
 
 shinyUI(dashboardPage(skin = "black",
                       ###################################
@@ -27,14 +24,16 @@ shinyUI(dashboardPage(skin = "black",
                       # Tricky way of placing elements in dashboardHeader, expects a tag element of type li and class dropdown, 
                       # so we can pass such elements instead of dropdownMenus
                       dashboardHeader(title = "MEM dashboard",
-                                      tags$li("memapp v2.1.20170608, code under GPLv2 at",
+                                      tags$li("memapp v2.2.20170623, code under GPLv2 at",
                                               class = "dropdown"),
                                       tags$li(a(href = 'https://github.com/lozalojo/memapp',
+                                                target="_blank",
                                                 img(src = 'GitHub_Logo.png',
                                                     title = "José E. Lozano", height = "30px"),
                                                 style = "padding-top:10px; padding-bottom:0px;"),
                                               class = "dropdown"),
                                       tags$li(a(href = 'http://www.icscyl.com',
+                                                target="_blank",
                                                 img(src = 'logoiecscyl.gif',
                                                     title = "IECSCyL", height = "40px"),
                                                 style = "padding-top:5px; padding-bottom:0px;"),
@@ -124,7 +123,7 @@ shinyUI(dashboardPage(skin = "black",
                         tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
                         fluidPage(
                           # Application title
-                          titlePanel(h1("The Moving Epidemics Method Shiny Web Application")),
+                          titlePanel(h1("The Moving Epidemic Method Web Application")),
                           tagList(
                             singleton(tags$head(
                               tags$link(rel="stylesheet", type="text/css",href="busyIndicator.css")
@@ -238,13 +237,19 @@ shinyUI(dashboardPage(skin = "black",
                                      sliderInput("paramrange", label = h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), "Parameter range"), min = 0.1, max = 10, value = c(2, 4), step=0.1),
                                      bsPopover(id = "paramrange", title = "Window parameter range", content = "Range of possible of values of the window parameter used by goodness and optimize functions.", placement = "left", trigger = "hover", options = list(container = "body")),
                                      h4(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), "Other"),
-                                     selectInput("typecurve", h6("Average curve thr.", tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = list("Arithmetic mean and mean confidence interval"=1, "Geometric mean and mean confidence interval"=2, "Median and the KC Method to calculate its confidence interval"=3, "Median and bootstrap confidence interval"=4, "Arithmetic mean and point confidence interval"=5, "Geometric mean and point confidence interval"=6), size=1, selectize = FALSE, selected = 2),
+                                     selectInput("typecurve", h6("Average curve CI.", tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = list("Arithmetic mean and mean confidence interval"=1, "Geometric mean and mean confidence interval"=2, "Median and the KC Method to calculate its confidence interval"=3, "Median and bootstrap confidence interval"=4, "Arithmetic mean and point confidence interval"=5, "Geometric mean and point confidence interval"=6), size=1, selectize = FALSE, selected = 2),
                                      bsPopover(id = "typecurve", title = "Average curve intervals", content = "Method for calculating the average/typical curve confidence intervals.", placement = "left", trigger = "hover", options = list(container = "body")),
-                                     selectInput("typeother", h6("Other thr.", tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = list("Arithmetic mean and mean confidence interval"=1, "Geometric mean and mean confidence interval"=2, "Median and the KC Method to calculate its confidence interval"=3, "Median and bootstrap confidence interval"=4, "Arithmetic mean and point confidence interval"=5, "Geometric mean and point confidence interval"=6), size=1, selectize = FALSE, selected = 3),
-                                     bsPopover(id = "typeother", title = "Otrher confidence intervals", content = "Method for calculating other confidence intervals: duration, epidemic percentage, epidemic start, etc.", placement = "left", trigger = "hover", options = list(container = "body")),
-                                     numericInput("leveltypicalcurve", h6("Average curve level", tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 95.0, step=0.5, min = 0.5, max = 99.5),
+                                     selectInput("typeother", h6("Other CI.", tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = list("Arithmetic mean and mean confidence interval"=1, "Geometric mean and mean confidence interval"=2, "Median and the KC Method to calculate its confidence interval"=3, "Median and bootstrap confidence interval"=4, "Arithmetic mean and point confidence interval"=5, "Geometric mean and point confidence interval"=6), size=1, selectize = FALSE, selected = 3),
+                                     bsPopover(id = "typeother", title = "Other confidence intervals", content = "Method for calculating other confidence intervals: duration, epidemic percentage, epidemic start, etc.", placement = "left", trigger = "hover", options = list(container = "body")),
+                                     numericInput("leveltypicalcurve", h6("Average curve/Other CI. level", tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 95.0, step=0.5, min = 0.5, max = 99.5),
                                      bsPopover(id = "leveltypicalcurve", title = "Average curve intervals", content = "Level of the confidence interval used to calculate the average curve and other intervals.", placement = "left", trigger = "hover", options = list(container = "body"))
-                                   )                                   
+                                   ),
+                                   shinydashboard::box(
+                                     title="Support", status = "info", solidHeader = TRUE, width = 12,  background = "black", collapsible = TRUE, collapsed=TRUE,
+                                     #h5(a("Surveillance guidelines", href="NULL", target="_blank")),
+                                     h5(a("Technical manual", href="https://drive.google.com/file/d/0B0IUo_0NhTOoeWdBcnRVcl9HUFk/view?usp=sharing", target="_blank")),
+                                     h5(a("Submit issues", href="https://github.com/lozalojo/memapp/issues", target="_blank"))
+                                   )
                             )
                           )
                         )
