@@ -24,7 +24,7 @@ shinyUI(dashboardPage(skin = "black",
                       # Tricky way of placing elements in dashboardHeader, expects a tag element of type li and class dropdown, 
                       # so we can pass such elements instead of dropdownMenus
                       dashboardHeader(title = "MEM dashboard",
-                                      tags$li("memapp v2.2.20170623, code under GPLv2 at",
+                                      tags$li(paste("memapp v",packageVersion("memapp"),", code under GPLv2 at",sep=""),
                                               class = "dropdown"),
                                       tags$li(a(href = 'https://github.com/lozalojo/memapp',
                                                 target="_blank",
@@ -71,7 +71,7 @@ shinyUI(dashboardPage(skin = "black",
                                            bsPopover(id = "SelectTo", title = "Select seasons for the model", content = "Last column to include in the model selection.", placement = "right", trigger = "hover", options = list(container = "body")),
                                            selectInput('SelectExclude', h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), "Exclude"), multiple = TRUE, choices = NULL),
                                            bsPopover(id = "SelectExclude", title = "Select seasons for the model", content = "Select any number of seasons to be excluded from the model.", placement = "right", trigger = "hover", options = list(container = "body")),
-                                           numericInput("SelectMaximum", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), "Max. seasons:"), 10, step=1),
+                                           numericInput("SelectMaximum", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), "Maximum seasons:"), 10, step=1),
                                            bsPopover(id = "SelectMaximum", title = "Select seasons for the model", content = "Maximum number of seasons to be used in the model.<br>Note that this will probably override the rest options, since it will restrict data to the last number of seasons from the selection already made with From/To/Exclude.<br>For influenza it is not recommended to use more than 10 seasons to avoid cyclical trends.", placement = "right", trigger = "hover", options = list(container = "body"))
                                        ),
                                        
@@ -156,11 +156,11 @@ shinyUI(dashboardPage(skin = "black",
                                    ###      FIRST PART: OUTPUTS        ###
                                    #######################################
                                    tabBox(
-                                     title = "MEM", width = 12, height = "800px",
-                                     tabPanel("Check & describe", "Check data series, timing and describe the data", uiOutput("tbData")),
-                                     tabPanel("Model", "Summary, graphs, goodness and optimization of the MEM model", uiOutput("tbModel")),
-                                     tabPanel("Surveillance", "Surveillance tools", uiOutput("tbSurveillance")),
-                                     tabPanel("Visualize", "Visualize different sets of data with a MEM model", uiOutput("tbVisualize"))
+                                     title = h3("Procedures", tags$style(type = "text/css", "#q1 {font-weight: bold;}")), width = 12, height = "800px",
+                                     tabPanel(h4("Check & describe", tags$style(type = "text/css", "#q1 {font-weight: bold;}")), "Check data series, timing and describe the data", uiOutput("tbData")),
+                                     tabPanel(h4("Model", tags$style(type = "text/css", "#q1 {font-weight: bold;}")), "Summary, graphs, goodness and optimization of the MEM model", uiOutput("tbModel")),
+                                     tabPanel(h4("Surveillance", tags$style(type = "text/css", "#q1 {font-weight: bold;}")), "Surveillance tools", uiOutput("tbSurveillance")),
+                                     tabPanel(h4("Visualize", tags$style(type = "text/css", "#q1 {font-weight: bold;}")), "Visualize different sets of data with a MEM model", uiOutput("tbVisualize"))
                                    )
                             ),
                             ###################################
@@ -238,17 +238,19 @@ shinyUI(dashboardPage(skin = "black",
                                      bsPopover(id = "paramrange", title = "Window parameter range", content = "Range of possible of values of the window parameter used by goodness and optimize functions.", placement = "left", trigger = "hover", options = list(container = "body")),
                                      h4(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), "Other"),
                                      selectInput("typecurve", h6("Average curve CI.", tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = list("Arithmetic mean and mean confidence interval"=1, "Geometric mean and mean confidence interval"=2, "Median and the KC Method to calculate its confidence interval"=3, "Median and bootstrap confidence interval"=4, "Arithmetic mean and point confidence interval"=5, "Geometric mean and point confidence interval"=6), size=1, selectize = FALSE, selected = 2),
-                                     bsPopover(id = "typecurve", title = "Average curve intervals", content = "Method for calculating the average/typical curve confidence intervals.", placement = "left", trigger = "hover", options = list(container = "body")),
+                                     bsPopover(id = "typecurve", title = "Average curve intervals", content = "Method for calculating the average curve confidence intervals.", placement = "left", trigger = "hover", options = list(container = "body")),
                                      selectInput("typeother", h6("Other CI.", tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = list("Arithmetic mean and mean confidence interval"=1, "Geometric mean and mean confidence interval"=2, "Median and the KC Method to calculate its confidence interval"=3, "Median and bootstrap confidence interval"=4, "Arithmetic mean and point confidence interval"=5, "Geometric mean and point confidence interval"=6), size=1, selectize = FALSE, selected = 3),
                                      bsPopover(id = "typeother", title = "Other confidence intervals", content = "Method for calculating other confidence intervals: duration, epidemic percentage, epidemic start, etc.", placement = "left", trigger = "hover", options = list(container = "body")),
-                                     numericInput("leveltypicalcurve", h6("Average curve/Other CI. level", tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 95.0, step=0.5, min = 0.5, max = 99.5),
-                                     bsPopover(id = "leveltypicalcurve", title = "Average curve intervals", content = "Level of the confidence interval used to calculate the average curve and other intervals.", placement = "left", trigger = "hover", options = list(container = "body"))
+                                     numericInput("levelaveragecurve", h6("Average curve/Other CI. level", tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 95.0, step=0.5, min = 0.5, max = 99.5),
+                                     bsPopover(id = "levelaveragecurve", title = "Average curve intervals", content = "Level of the confidence interval used to calculate the average curve and other intervals.", placement = "left", trigger = "hover", options = list(container = "body"))
                                    ),
                                    shinydashboard::box(
                                      title="Support", status = "info", solidHeader = TRUE, width = 12,  background = "black", collapsible = TRUE, collapsed=TRUE,
                                      #h5(a("Surveillance guidelines", href="NULL", target="_blank")),
-                                     h5(a("Technical manual", href="https://drive.google.com/file/d/0B0IUo_0NhTOoeWdBcnRVcl9HUFk/view?usp=sharing", target="_blank")),
-                                     h5(a("Submit issues", href="https://github.com/lozalojo/memapp/issues", target="_blank"))
+                                     h5(a("Technical manual", href="https://drive.google.com/file/d/0B0IUo_0NhTOoX29zc2p5RmlBUWc/view?usp=sharing", target="_blank")),
+                                     h5(a("Submit issues", href="https://github.com/lozalojo/memapp/issues", target="_blank")),
+                                     checkboxInput("advancedfeatures", label = h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), "Show advanced features"), value = FALSE),
+                                     bsPopover(id = "advancedfeatures", title = "Advanced features", content = "Show advanced features of memapp.", placement = "right", trigger = "hover", options = list(container = "body"))
                                    )
                             )
                           )
