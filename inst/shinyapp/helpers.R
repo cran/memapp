@@ -33,13 +33,17 @@ generate_palette <- function(i.number.series=NA,
   if (i.colEpidemicStart=="default") i.colEpidemicStart<-params.default$colEpidemicStart else i.colEpidemicStart<-rgb(t(col2rgb(i.colEpidemicStart))/255)
   if (i.colEpidemicStop=="default") i.colEpidemicStop<-params.default$colEpidemicStop else i.colEpidemicStop<-rgb(t(col2rgb(i.colEpidemicStop))/255)
   # Fifth to Seventh are palettes that I must create
-  if (i.colThresholds=="default") i.colThresholds<-params.default$colThresholds else i.colThresholds<-brewer.pal(7,i.colThresholds)[2:6]
+  if (i.colThresholds=="default") i.colThresholds<-params.default$colThresholds else i.colThresholds<-RColorBrewer::brewer.pal(7,i.colThresholds)[2:6]
   if (i.colSeasons=="default") i.colSeasons<-params.default$colSeasons
-  i.colSeasons <- colorRampPalette(brewer.pal(max(3,min(8,i.number.series)),i.colSeasons))(i.number.series)
-  if (i.colEpidemic=="default") i.colEpidemic<-params.default$colEpidemic else i.colEpidemic<-brewer.pal(5,i.colEpidemic)[2:4]
+  i.colSeasons <- colorRampPalette(RColorBrewer::brewer.pal(max(3,min(8,i.number.series)),i.colSeasons))(i.number.series)
+  if (i.colEpidemic=="default") i.colEpidemic<-params.default$colEpidemic else i.colEpidemic<-RColorBrewer::brewer.pal(5,i.colEpidemic)[2:4]
   # Last one is a number between 0 and 1
   # colTransparency<-input$colTransparency
   # if (is.null(colTransparency)) colTransparency<-1 else if (is.na(colTransparency)) colTransparency<-1
+  
+  # i.colEpidemicStart<-mem:::add.alpha(i.colEpidemicStart,alpha=0.4)
+  # i.colEpidemicStop<-mem:::add.alpha(i.colEpidemicStop,alpha=0.4)
+  
   colors.final<-list(colObservedLines=i.colObservedLines, colObservedPoints=i.colObservedPoints,
                      colEpidemicStart=i.colEpidemicStart, colEpidemicStop=i.colEpidemicStop,
                      colThresholds=i.colThresholds, colSeasons=i.colSeasons,colEpidemic=i.colEpidemic
@@ -67,7 +71,7 @@ plotSeasons <- function(i.data,
   if(is.null(i.data)){
     p<-NULL
   }else{
-    if (any(is.na(i.colSeasons))) i.colSeasons <- colorRampPalette(brewer.pal(max(3,min(8,NCOL(i.data))),"Accent"))(NCOL(i.data))
+    if (any(is.na(i.colSeasons))) i.colSeasons <- colorRampPalette(RColorBrewer::brewer.pal(max(3,min(8,NCOL(i.data))),"Accent"))(NCOL(i.data))
     if (any(is.na(i.range.x)) | !is.numeric(i.range.x) | length(i.range.x)!=2) i.range.x<-c(min(as.numeric(rownames(i.data)[1:(min(3,NROW(i.data)))])),max(as.numeric(rownames(i.data)[(max(1,NROW(i.data)-2)):NROW(i.data)])))
     if (i.range.x[1] < 1) i.range.x[1] <- 1
     if (i.range.x[1] > 52) i.range.x[1] <- 52
@@ -1566,3 +1570,21 @@ extract.pfe<-function(i.file){
 zip.present<-function() file.exists(Sys.getenv("R_ZIPCMD"))
 
 mdbtools.present<-function() file.exists("/usr/bin/mdb-tables") | file.exists("/usr/local/bin/mdb-tables")
+
+# functions for the optimize plots
+
+tail.order<-function(i.data, i.n, i.order){
+  res<-tail(i.data, n=i.n)
+  res<-res[order(res[i.order]),]
+  res$id.tail<-1:NROW(res)
+  res
+}
+
+extract.two<-function(i.data, i.order, i.column){
+  # data<-unique(i.data, fromLast=T)
+  data<-i.data
+  results <- do.call("rbind", by(data, data[i.column], tail.order, i.n=2, i.order=i.order))
+  return(results)
+}
+
+
