@@ -26,24 +26,38 @@ generate_palette <- function(i.number.series=NA,
   if (is.null(i.colThresholds)) i.colThresholds<-"default" else if (is.na(i.colThresholds)) i.colThresholds<-"default"
   if (is.null(i.colSeasons)) i.colSeasons<-"default" else if (is.na(i.colSeasons)) i.colSeasons<-"default"
   if (is.null(i.colEpidemic)) i.colEpidemic<-"default" else if (is.na(i.colEpidemic)) i.colEpidemic<-"default"
-  
   # First four are simple colors
   if (i.colObservedLines=="default") i.colObservedLines<-params.default$colObservedLines else i.colObservedLines<-rgb(t(col2rgb(i.colObservedLines))/255)
   if (i.colObservedPoints=="default") i.colObservedPoints<-params.default$colObservedPoints else i.colObservedPoints<-rgb(t(col2rgb(i.colObservedPoints))/255)
   if (i.colEpidemicStart=="default") i.colEpidemicStart<-params.default$colEpidemicStart else i.colEpidemicStart<-rgb(t(col2rgb(i.colEpidemicStart))/255)
   if (i.colEpidemicStop=="default") i.colEpidemicStop<-params.default$colEpidemicStop else i.colEpidemicStop<-rgb(t(col2rgb(i.colEpidemicStop))/255)
   # Fifth to Seventh are palettes that I must create
-  if (i.colThresholds=="default") i.colThresholds<-params.default$colThresholds else i.colThresholds<-RColorBrewer::brewer.pal(7,i.colThresholds)[2:6]
-  if (i.colSeasons=="default") i.colSeasons<-params.default$colSeasons
-  i.colSeasons <- colorRampPalette(RColorBrewer::brewer.pal(max(3,min(8,i.number.series)),i.colSeasons))(i.number.series)
-  if (i.colEpidemic=="default") i.colEpidemic<-params.default$colEpidemic else i.colEpidemic<-RColorBrewer::brewer.pal(5,i.colEpidemic)[2:4]
+  if(i.colThresholds %in% colors()){
+    i.colThresholds<-rep(rgb(t(col2rgb(i.colThresholds))/255),5)
+  }else if(i.colThresholds %in% rownames(brewer.pal.info)){
+    i.colThresholds<-RColorBrewer::brewer.pal(7,i.colThresholds)[2:6]
+  }else{
+    i.colThresholds<-params.default$colThresholds
+  }
+  if(i.colSeasons %in% colors()){
+    i.colSeasons<-rep(rgb(t(col2rgb(i.colSeasons))/255),i.number.series)
+  }else if(i.colSeasons %in% rownames(brewer.pal.info)){
+    i.colSeasons <- colorRampPalette(RColorBrewer::brewer.pal(max(3,min(8,i.number.series)),i.colSeasons))(i.number.series)
+  }else{
+    i.colSeasons <- colorRampPalette(RColorBrewer::brewer.pal(max(3,min(8,i.number.series)),params.default$colSeasons))(i.number.series)
+  }
+  if (i.colEpidemic %in% colors()){
+    i.colEpidemic<-rep(rgb(t(col2rgb(i.colEpidemic))/255),3)
+  }else if(i.colEpidemic %in% rownames(brewer.pal.info)){
+    i.colEpidemic<-RColorBrewer::brewer.pal(5,i.colEpidemic)[2:4]
+  }else{
+    i.colEpidemic<-params.default$colEpidemic
+  }
   # Last one is a number between 0 and 1
   # colTransparency<-input$colTransparency
   # if (is.null(colTransparency)) colTransparency<-1 else if (is.na(colTransparency)) colTransparency<-1
-  
   # i.colEpidemicStart<-mem:::add.alpha(i.colEpidemicStart,alpha=0.4)
   # i.colEpidemicStop<-mem:::add.alpha(i.colEpidemicStop,alpha=0.4)
-  
   colors.final<-list(colObservedLines=i.colObservedLines, colObservedPoints=i.colObservedPoints,
                      colEpidemicStart=i.colEpidemicStart, colEpidemicStop=i.colEpidemicStop,
                      colThresholds=i.colThresholds, colSeasons=i.colSeasons,colEpidemic=i.colEpidemic
@@ -234,9 +248,8 @@ plotSeasons <- function(i.data,
       scale_x_continuous(breaks=axis.x.ticks, limits = axis.x.range, labels = axis.x.labels) +
       scale_y_continuous(breaks=axis.y.ticks, limits = axis.y.range, labels = axis.y.labels) +
       labs(title = i.textMain, x = i.textX, y = i.textY) +
-      theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-      ggthemes::theme_few()
-    
+      ggthemes::theme_few() +
+      theme(plot.title = element_text(hjust = 0.5))
     p<-list(plot=gplot,labels=labels.s,haspoints=haspoints.s,haslines=haslines.s,
             weeklabels=i.range.x.values$week.lab, gdata=dgrafgg.s)
   }
@@ -471,8 +484,8 @@ plotSeries<-function(i.data,
       scale_x_continuous(breaks=axis.x.ticks, limits = axis.x.range, labels = axis.x.labels) +
       scale_y_continuous(breaks=axis.y.ticks, limits = axis.y.range, labels = axis.y.labels) +
       labs(title = i.textMain, x = i.textX, y = i.textY) +
-      ggthemes::theme_few()
-    
+      ggthemes::theme_few() +
+      theme(plot.title = element_text(hjust = 0.5))
     p<-list(plot=gplot,labels=labels.s,haspoints=haspoints.s,haslines=haslines.s,
             weeklabels=paste(data.orig$week,"<br />Season: ",data.orig$season,sep=""), gdata=dgrafgg.s)
   }
@@ -738,8 +751,8 @@ plotSurveillance<-function(i.data,
       scale_x_continuous(breaks=axis.x.ticks, limits = axis.x.range, labels = axis.x.labels) +
       scale_y_continuous(breaks=axis.y.ticks, limits = axis.y.range, labels = axis.y.labels) +
       labs(title = i.textMain, x = i.textX, y = i.textY) +
-      ggthemes::theme_few()
-    
+      ggthemes::theme_few() +
+      theme(plot.title = element_text(hjust = 0.5))
     p<-list(plot=gplot,labels=labels.s,haspoints=haspoints.s,haslines=haslines.s,
             weeklabels=current.season$nombre.semana, gdata=dgrafgg.s)
   }
@@ -804,7 +817,8 @@ plotGeneric <- function(i.data,
       scale_x_continuous(breaks=axis.x.ticks, limits = axis.x.range, labels = axis.x.labels) +
       scale_y_continuous(breaks=axis.y.ticks, limits = axis.y.range, labels = axis.y.labels) +
       labs(title = i.textMain, x = i.textX, y = i.textY) +
-      ggthemes::theme_few()
+      ggthemes::theme_few() +
+      theme(plot.title = element_text(hjust = 0.5))
     p<-list(plot=gplot, gdata=dgrafgg)
   }
   p
@@ -1570,6 +1584,54 @@ extract.pfe<-function(i.file){
 zip.present<-function() file.exists(Sys.getenv("R_ZIPCMD"))
 
 mdbtools.present<-function() file.exists("/usr/bin/mdb-tables") | file.exists("/usr/local/bin/mdb-tables")
+
+# check what animation method has to be used
+
+animation.method<-function(){
+  if (.Platform$OS.type=="windows"){
+    cat("Windows system detected\n")
+    path.env<-tolower(Sys.getenv("PATH"))
+    if ("animation" %in% rownames(installed.packages()) & grepl("graphicsmagick", path.env, ignore.case = T, fixed=T)){
+      # GraphicsMagick program + animation package
+      cat("GraphicsMagick+animation detected. Using animation package\n")
+      animation.method<-1
+    }else if ("animation" %in% rownames(installed.packages()) & grepl("imagemagick", path.env, ignore.case = T, fixed=T)){
+      # ImageMagick program + animation package
+      cat("ImageMagick+animation detected. Using animation package\n")
+      animation.method<-2
+    }else if ("magick" %in% rownames(installed.packages())){
+      # magick package
+      cat("magick detected. Using magick package\n")
+      animation.method<-3
+    }else{
+      cat("No GraphicsMagick+animation nor ImageMagick+animation nor magick detected. No animation\n")
+      animation.method<-4      
+    }
+  }else if (.Platform$OS.type=="unix"){
+    cat("*nix system detected\n")
+    if ("animation" %in% rownames(installed.packages()) & file.exists("/usr/bin/gm")){
+      # GraphicsMagick program + animation package
+      cat("GraphicsMagick+animation detected. Using animation package\n")
+      animation.method<-1
+    }else if ("animation" %in% rownames(installed.packages()) & file.exists("/usr/bin/convert")){
+      # ImageMagick program + animation package
+      cat("ImageMagick+animation detected. Using animation package\n")
+      animation.method<-2
+    }else if("magick" %in% rownames(installed.packages())){
+      # magick package
+      cat("magick detected. Using magick package\n")
+      animation.method<-3
+    }else{
+      cat("No GraphicsMagick+animation nor ImageMagick+animation nor magick detected. No animation\n")
+      animation.method<-4      
+    }
+  }else{
+    cat("No windows or *nix system detected\n")
+    animation.method<-4
+  }
+  # animation.method<-3
+  return(animation.method)
+}
 
 # functions for the optimize plots
 

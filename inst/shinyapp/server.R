@@ -1,6 +1,10 @@
 options(warn =-1)
+# route messages to output in the server
+if (!interactive()) sink(stderr(), type = "output")
+
 source("helpers.R")
 set.rzip()
+animationmethod<-animation.method()
 
 shinyServer(function(input, output, session) {
   
@@ -647,6 +651,7 @@ shinyServer(function(input, output, session) {
             scale_y_continuous(breaks=axis.y.ticks, limits = axis.y.range, labels = axis.y.labels) +
             labs(title = input$textMain, x = input$textX, y = input$textY) +
             ggthemes::theme_few() +
+            theme(plot.title = element_text(hjust = 0.5)) +
             guides(color=FALSE, size=FALSE)
         })})
         lapply(modseasons,function(s){
@@ -2993,7 +2998,9 @@ shinyServer(function(input, output, session) {
         scale_y_continuous(breaks=axis.y.ticks, limits = axis.y.range, labels = axis.y.labels) +
         scale_color_manual(values=colors.palette$colSeasons) +
         labs(title = input$textMain, x = input$textX, y = input$textY) +
-        ggthemes::theme_few()
+        ggthemes::theme_few() +
+        theme(plot.title = element_text(hjust = 0.5))
+      
       z<-ggplotly(p, width = 800, height = 600)
     }
     z
@@ -3051,10 +3058,16 @@ shinyServer(function(input, output, session) {
       return(NULL)
     }else{
       tabsetPanel(tabPanel("Week", plotlyOutput("tbsSurveillanceWeek", width ="100%", height ="100%")),
-                  if (requireNamespace("magick", quietly = TRUE)){
+                  # if (requireNamespace("magick", quietly = TRUE)){
+                  #   tabPanel("Animated", imageOutput("tbsSurveillanceAnimated"))
+                  # }else{
+                  #   cat('magick package needed for this function to work. Please install it.\n')
+                  #   tabPanel("Animated", tableOutput("tbsSurveillanceAnimated_nomagick"))
+                  # },
+                  if (animationmethod<4){
                     tabPanel("Animated", imageOutput("tbsSurveillanceAnimated"))
                   }else{
-                    cat('magick package needed for this function to work. Please install it.\n')
+                    cat('animation package + GraphicsMagick or ImageMagic or magick package needed for this function to work. Please install it.\n')
                     tabPanel("Animated", tableOutput("tbsSurveillanceAnimated_nomagick"))
                   },
                   tabPanel("Average",
@@ -3182,7 +3195,6 @@ shinyServer(function(input, output, session) {
       if (as.logical(input$postepidemicthr)) max.y<-max(max.y,e.thr[2],na.rm=T)
       if (as.logical(input$intensitythr)) max.y<-max(max.y,i.thr,na.rm=T)
       n.surveillance.week<-min((1:(NROW(datfile)))[SurveillanceWeek==rownames(datfile)])
-      # Uses magick, its a kind of R imagemagick, should work out of the box
       colors.palette<-generate_palette(i.number.series=NA,
                                        i.colObservedLines=input$colObservedLines,
                                        i.colObservedPoints=input$colObservedPoints,
@@ -3191,7 +3203,9 @@ shinyServer(function(input, output, session) {
                                        i.colThresholds=input$colThresholds,
                                        i.colSeasons=input$colSeasons,
                                        i.colEpidemic=input$colEpidemic)
-      
+      cat("animated gif> begin\n")
+      cat("animated gif> creating the frames\n")
+      plot.list<-list()
       for (i in 1:n.surveillance.week){
         p<-plotSurveillance(i.data=datfile.plot,
                             i.week.report=rownames(datfile)[i],
@@ -3212,16 +3226,39 @@ shinyServer(function(input, output, session) {
                             i.colEpidemicStart=colors.palette$colEpidemicStart,
                             i.colEpidemicStop=colors.palette$colEpidemicStop,
                             i.colThresholds=colors.palette$colThresholds)
-        imgfile<-paste(tempdir(),"/animatedplot_",i,".png",sep="")
-        ggsave(imgfile, plot=p$plot, width=8, height=6, dpi=150)
-        if (i==1) imgfilem<-magick::image_read(imgfile) else imgfilem<-c(imgfilem,magick::image_read(imgfile))
-        #cat(imgfile,"\n")
+        plot.list[[i]]<-p$plot
       }
-      imgfilegif<-paste(tempdir(),"/animated.gif",sep="")
-      anim <- magick::image_animate(imgfilem, fps = 2)
-      magick::image_write(anim,path=imgfilegif)
-      #cat(imgfilegif,"\n")
-      outdistAnimated<-list(src = paste(tempdir(),"/animated.gif",sep=""),
+      imgfilegif<-paste0(tempdir(),"/animated.gif")
+      if (animationmethod==1){
+        cat("animated gif> using animation package with GraphicsMagic\n")
+        requireNamespace("animation", quietly = TRUE)
+        cat(paste0("animated gif> creating\t\t",imgfilegif,"\n"))
+        animation::saveGIF(for (i in 1:n.surveillance.week) print(plot.list[[i]]), movie.name=imgfilegif, interval = 0.5, autobrowse=F, ani.width=640, ani.height=480, loop=T, convert = "gm convert")
+        cat(paste0("animated gif> saving\t\t",imgfilegif,"\n"))
+        cat("animated gif> end\n")        
+      }else if (animationmethod==2){
+        cat("animated gif> using animation package with ImageMagic\n")
+        requireNamespace("animation", quietly = TRUE)
+        cat(paste0("animated gif> creating\t\t",imgfilegif,"\n"))
+        animation::saveGIF(for (i in 1:n.surveillance.week) print(plot.list[[i]]), movie.name=imgfilegif, interval = 0.5, autobrowse=F, ani.width=640, ani.height=480, loop=T)
+        cat(paste0("animated gif> saving\t\t",imgfilegif,"\n"))
+        cat("animated gif> end\n")        
+      }else if (animationmethod==3){
+        cat("animated gif> using magick package\n")
+        requireNamespace("magick", quietly = TRUE)
+        for (i in 1:n.surveillance.week){
+          imgfile<-paste(tempdir(),"/animatedplot_",i,".png",sep="")
+          ggsave(imgfile, plot=plot.list[[i]], width=8, height=6, dpi=150)
+          if (i==1) imgfilem<-magick::image_read(imgfile) else imgfilem<-c(imgfilem,magick::image_read(imgfile))
+          cat(paste0("animated gif> image\t",i,"/",n.surveillance.week,"\t",imgfile,"\n"))
+        }
+        cat(paste0("animated gif> creating\t\t",imgfilegif,"\n"))
+        anim <- magick::image_animate(imgfilem, fps = 2)
+        cat(paste0("animated gif> saving\t\t",imgfilegif,"\n"))
+        magick::image_write(anim,path=imgfilegif)
+        cat("animated gif> end\n")        
+      }
+      outdistAnimated<-list(src = imgfilegif,
                             contentType = 'image/gif',
                             width = 800,
                             height = 600,

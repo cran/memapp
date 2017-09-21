@@ -1,12 +1,12 @@
-5f9a63d2ba7bda0874a9be41766a391b *DESCRIPTION
+997a0bbcaeed42af510b4978b155db7c *DESCRIPTION
 9b77fb642f9c6b09652ceff5c76aed86 *NAMESPACE
 a95882c10760fc772bdf7c42fc721a87 *R/flucyl.R
 6d9ad4fd4cb5d9008d0a3fc1b491f4d9 *R/runmemapp.R
 5b10929cb7d8bb7668c34dd56e9d4c13 *README.md
 c403a721636e764e1ac700b537fee594 *data/flucyl.rda
-1aa9b7f0e267c251f968380876bad05d *inst/shinyapp/helpers.R
-6e1d4cde938471201ada7c579cbf314a *inst/shinyapp/server.R
-ec26983a78a4f3b02a2d90bd44f0848d *inst/shinyapp/ui.R
+bcc27ab9be84aa933bfd655a743b1cab *inst/shinyapp/helpers.R
+7fe32ad7af729175978d622e927b2fe6 *inst/shinyapp/server.R
+ee135763a14d8d5dd06474510c9aad2d *inst/shinyapp/ui.R
 cefc20232703e5e3c24efd5f50d75e26 *inst/shinyapp/www/GitHub_Logo.png
 562b6641c06d50f5744590fedb5a6b02 *inst/shinyapp/www/ajaxloaderq.gif
 a927ddb68f672b6df5ce80080da8e19a *inst/shinyapp/www/busyIndicator.css
