@@ -74,7 +74,8 @@ generate_palette <- function(i.number.series=NA,
 read.data<-function(i.file,
                     i.file.name=NA,
                     i.dataset=NA,
-                    i.range.x=NA){
+                    i.range.x=NA,
+                    i.process.data=T){
   if (!file.exists(i.file)){
     datasets=NULL
     datasetread=NULL
@@ -152,18 +153,21 @@ read.data<-function(i.file,
     }
     rm("nonnumericcolumns")
     # dealing with season start and end, extracts information from rownames and gets season start/end
-    if (NCOL(datasetread)>1){
-      seasons<-data.frame(names(datasetread),matrix(stringr::str_match(names(datasetread),"(\\d{4})(?:.*(\\d{4}))?(?:.*\\(.*(\\d{1,}).*\\))?"),nrow=NCOL(datasetread),byrow=F)[,-1],stringsAsFactors = F)
-    }else{
-      seasons<-data.frame(t(c(names(datasetread),stringr::str_match(names(datasetread),"(\\d{4})(?:.*(\\d{4}))?(?:.*\\(.*(\\d{1,}).*\\))?")[-1])),stringsAsFactors = F)
-    }
-    names(seasons)<-c("column","anioi","aniof","aniow")
+    # if (NCOL(datasetread)>1){
+    #   seasons<-data.frame(names(datasetread),matrix(stringr::str_match(names(datasetread),"(\\d{4})(?:.*(\\d{4}))?(?:.*\\(.*(\\d{1,}).*\\))?"),nrow=NCOL(datasetread),byrow=F)[,-1],stringsAsFactors = F)
+    # }else{
+    #   seasons<-data.frame(t(c(names(datasetread),stringr::str_match(names(datasetread),"(\\d{4})(?:.*(\\d{4}))?(?:.*\\(.*(\\d{1,}).*\\))?")[-1])),stringsAsFactors = F)
+    # }
+    # names(seasons)<-c("column","anioi","aniof","aniow")
+    seasons <- data.frame(column=names(datasetread), stringsAsFactors = F)  %>%
+      extract(column, into=c("anioi","aniof","aniow"), "^[^\\d]*(\\d{4})(?:[^\\d]*(\\d{4}))?(?:[^\\d]*(\\d{1,}))?[^\\d]*$", remove=F)
     seasons[is.na(seasons)]<-""
     seasons$aniof[seasons$aniof==""]<-seasons$anioi[seasons$aniof==""]
     seasonsname<-seasons$anioi
     seasonsname[seasons$aniof!=""]<-paste(seasonsname[seasons$aniof!=""],seasons$aniof[seasons$aniof!=""],sep="/")
     seasonsname[seasons$aniow!=""]<-paste(seasonsname[seasons$aniow!=""],"(",seasons$aniow[seasons$aniow!=""],")",sep="")
     seasons$season<-seasonsname
+    print(seasons)
     rm("seasonsname")
     names(datasetread)<-seasons$season
     # Remove columns not detected as seasons
@@ -175,7 +179,7 @@ read.data<-function(i.file,
     rm("noseasondetected")
     if (NCOL(datasetread)==0){
       datasetread<-NULL
-    }else{
+    }else if (i.process.data){
       # Fix when reading access files, sometimes it changes the order of the weeks
       # This (i.range.x<-NA) is in case i implement the "week range option" to select the surveillance
       # period, if i implement it, i only have to substitute i.range.x for input$somethinstart/end
@@ -187,6 +191,8 @@ read.data<-function(i.file,
       if (i.range.x[2] > 52) i.range.x[2] <- 52
       if (i.range.x[1] == i.range.x[2]) i.range.x[2] <- i.range.x[2] - 1
       if (i.range.x[2]==0) i.range.x[2]<-52
+      # If I use the transform functions I will join seasons formed by several parts, for example 2001/1, 2001/2 will
+      # be joined in a single 2001 season.
       datasetread<-transformdata.back(datasetread, i.name = "rates", i.cutoff.original=i.cutoff.original, i.range.x.final=i.range.x)$data
       datasetread<-transformdata(datasetread, i.name = "rates", i.range.x = i.range.x)$data
     }
@@ -575,7 +581,7 @@ select.columns<-function(i.names, i.from, i.to, i.exclude="", i.include="", i.pa
 #' Find tickmarks for a given range of the y-axis that best fit an optimal number of tickmarks
 #' you decide. f.i: what if i want to have a graph with 8 tickmarks in a range of 34 to 345
 
-optimal.tickmarks<-function(i.min,i.max,i.number.ticks=10,
+optimal.tickmarks.old<-function(i.min,i.max,i.number.ticks=10,
                             i.valid.ticks=apply(expand.grid(c(1,2,2.5,5), 10^(-10:10)), 1, FUN = function(x) {x[1] * x[2]}),
                             i.include.min=F,i.include.max=F){
   # Y ahora calculo el tickmark que más se acerca a esos 10 tickmarks objetivo.
@@ -618,6 +624,35 @@ optimal.tickmarks<-function(i.min,i.max,i.number.ticks=10,
   return(list(by=salto,number=numero.ticks,range=range.y,tickmarks=tickmarks))
 }
 
+optimal.tickmarks<-function(i.min,i.max,i.number.ticks=10,
+                            i.valid.ticks=apply(expand.grid(c(1,2,2.5,5), 10^(-10:10)), 1, FUN = function(x) {x[1] * x[2]}),
+                            i.include.min=F,i.include.max=F){
+  # Y ahora calculo el tickmark que más se acerca a esos 10 tickmarks objetivo.
+  # Option 1: free, I can put tickmarks outside c(i.min,i.max)
+  if (i.include.min) dif0<-i.min else dif0<-0
+  i.min=i.min-dif0
+  i.max=i.max-dif0
+  ticks.min<-floor(i.min/i.valid.ticks)
+  ticks.max<-ceiling(i.max/i.valid.ticks)
+  ticks.maxmin<-ticks.max-ticks.min+1
+  n.valid.ticks<-length(i.valid.ticks)
+  posicion.ticks<-(1:n.valid.ticks)[min(abs(ticks.maxmin-i.number.ticks))==abs(ticks.maxmin-i.number.ticks)][1]
+  ini<-(ticks.min*i.valid.ticks)[posicion.ticks]+dif0
+  fin<-(ticks.max*i.valid.ticks)[posicion.ticks]+dif0
+  salto<-i.valid.ticks[posicion.ticks]
+  # Tickmarks
+  tickmarks<-seq(ini,fin,salto)
+  # Number of ticks
+  numero.ticks<-length(tickmarks)
+  if (i.include.max) {
+    fin<-i.max
+    tickmarks[numero.ticks]<-i.max
+  }
+  # Rank
+  range.y<-c(ini,fin)
+  # Returning
+  return(list(by=salto,number=numero.ticks,range=range.y,tickmarks=tickmarks))
+}
 
 # Fix plotly graphs
 
@@ -641,7 +676,7 @@ fixplotly<-function(i.plotly,i.labels,i.lines,i.points,i.xname,i.yname,i.weeklab
   for (i in 1:nlists){
     if (length(grep(i.yname,i.plotly$x$data[[i]]$text))>0){
       dividetext<-matrix(unlist(strsplit(i.plotly$x$data[[i]]$text,"<br>|<br />")),nrow=length(i.plotly$x$data[[i]]$text), byrow=T)
-      i.plotly$x$data[[i]]$text<-paste("Week: ",i.weeklabels,"<br />",sub(i.yname,i.labels[sequ[i]],dividetext[,2]),sep="")
+      i.plotly$x$data[[i]]$text<-paste(i.xname, ": ",i.weeklabels,"<br />",sub(i.yname,i.labels[sequ[i]],dividetext[,2]),sep="")
     }
   }
   # For those with points and labels, i modify the mode and add the marker
@@ -662,7 +697,16 @@ fixplotly<-function(i.plotly,i.labels,i.lines,i.points,i.xname,i.yname,i.weeklab
   toremove<-toremove[order(toremove, decreasing = T)]
   # in reverse order, since removing changes order
   for (i in 1:length(toremove)) i.plotly$x$data[[toremove[i]]]<-NULL
+  if (.Platform$OS.type=="windows") i.plotly<-fixlatin(i.plotly)
   return(i.plotly)
+}
+
+fixlatin<-function(i.plotly){
+  o.plotly<-i.plotly
+  for (i in 1:length(i.plotly$x$data)){
+    o.plotly$x$data[[i]]$text<-iconv(i.plotly$x$data[[i]]$text, from="UTF-8", to="LATIN1")
+  }
+  o.plotly
 }
 
 fixed_color_bar <- function (color = "lightgray", fixedWidth=150, alpha=0.5,...){
@@ -712,11 +756,12 @@ export.mydata<-function(i.data, i.file, i.sheet=NA, i.rownames=NA, i.format="xls
 # Configure a zip extractor in the system, required for openxlsx saving, it is installed with Rtools
 
 set.rzip<-function(){
+  cat("function/setupzip> begin\n")
   if (.Platform$OS.type=="windows"){
-    cat("Windows system detected\n")
+    cat("function/setupzip> Windows system detected\n")
     if (file.exists("c:\\Rtools\\bin\\zip.exe")){
       ziploc<-"c:\\Rtools\\bin\\zip.exe"
-      cat("zip found at default dir ",ziploc,"\n")
+      cat("function/setupzip> zip found at default dir ",ziploc,"\n")
     }else{
       temp1<-Sys.getenv("PATH")
       if (grepl("rtools", tolower(temp1))){
@@ -731,30 +776,31 @@ set.rzip<-function(){
         }))
         if (any(temp7)){
           ziploc<-paste(temp6[temp7][1],"\\zip.exe",sep="")
-          cat("zip found at path ",ziploc,"\n")
+          cat("function/setupzip> zip found at path ",ziploc,"\n")
         }else{
           ziploc<-""
-          cat("no zip found\n")
+          cat("function/setupzip> no zip found\n")
         }
       }else{
         ziploc<-""
-        cat("no zip found\n")
+        cat("function/setupzip> no zip found\n")
       }
     }
   }else if (.Platform$OS.type=="unix"){
-    cat("*nix system detected\n")
+    cat("function/setupzip> *nix system detected\n")
     if (file.exists("/usr/bin/zip")){
       ziploc<-"/usr/bin/zip"
-      cat("zip found at ",ziploc,"\n")
+      cat("function/setupzip> zip found at ",ziploc,"\n")
     }else{
       ziploc<-""
-      cat("no zip found\n")
+      cat("function/setupzip> no zip found\n")
     }
   }else{
-    cat("No windows or *nix system detected\n")
+    cat("function/setupzip> No windows or *nix system detected\n")
     ziploc<-""
-    cat("no zip found\n")
+    cat("function/setupzip> no zip found\n")
   }
+  cat("function/setupzip> end\n")  
   Sys.setenv(R_ZIPCMD = ziploc)
 }
 
@@ -786,47 +832,49 @@ mdbtools.present<-function() file.exists("/usr/bin/mdb-tables") | file.exists("/
 # check what animation method has to be used
 
 animation.method<-function(){
+  cat("function/animation.method> begin\n")  
   if (.Platform$OS.type=="windows"){
-    cat("Windows system detected\n")
+    cat("function/animation.method> Windows system detected\n")
     path.env<-tolower(Sys.getenv("PATH"))
     if ("animation" %in% rownames(installed.packages()) & grepl("graphicsmagick", path.env, ignore.case = T, fixed=T)){
       # GraphicsMagick program + animation package
-      cat("GraphicsMagick+animation detected. Using animation package\n")
+      cat("function/animation.method> GraphicsMagick+animation detected. Using animation package\n")
       animation.method<-1
     }else if ("animation" %in% rownames(installed.packages()) & grepl("imagemagick", path.env, ignore.case = T, fixed=T)){
       # ImageMagick program + animation package
-      cat("ImageMagick+animation detected. Using animation package\n")
+      cat("function/animation.method> ImageMagick+animation detected. Using animation package\n")
       animation.method<-2
     }else if ("magick" %in% rownames(installed.packages())){
       # magick package
-      cat("magick detected. Using magick package\n")
+      cat("function/animation.method> magick detected. Using magick package\n")
       animation.method<-3
     }else{
-      cat("No GraphicsMagick+animation nor ImageMagick+animation nor magick detected. No animation\n")
+      cat("function/animation.method> No GraphicsMagick+animation nor ImageMagick+animation nor magick detected. No animation\n")
       animation.method<-4      
     }
   }else if (.Platform$OS.type=="unix"){
-    cat("*nix system detected\n")
+    cat("function/animation.method> *nix system detected\n")
     if ("animation" %in% rownames(installed.packages()) & file.exists("/usr/bin/gm")){
       # GraphicsMagick program + animation package
-      cat("GraphicsMagick+animation detected. Using animation package\n")
+      cat("function/animation.method> GraphicsMagick+animation detected. Using animation package\n")
       animation.method<-1
     }else if ("animation" %in% rownames(installed.packages()) & file.exists("/usr/bin/convert")){
       # ImageMagick program + animation package
-      cat("ImageMagick+animation detected. Using animation package\n")
+      cat("function/animation.method> ImageMagick+animation detected. Using animation package\n")
       animation.method<-2
     }else if("magick" %in% rownames(installed.packages())){
       # magick package
-      cat("magick detected. Using magick package\n")
+      cat("function/animation.method> magick detected. Using magick package\n")
       animation.method<-3
     }else{
-      cat("No GraphicsMagick+animation nor ImageMagick+animation nor magick detected. No animation\n")
+      cat("function/animation.method> No GraphicsMagick+animation nor ImageMagick+animation nor magick detected. No animation\n")
       animation.method<-4      
     }
   }else{
-    cat("No windows or *nix system detected\n")
+    cat("function/animation.method> No windows or *nix system detected\n")
     animation.method<-4
   }
+  cat("function/animation.method> end\n")  
   return(animation.method)
 }
 
@@ -845,3 +893,98 @@ extract.two<-function(i.data, i.order, i.column){
   return(results)
 }
 
+# locale funcions
+
+translation.dir<-function(){
+  translation.loc<-c("lang","inst/shinyapp/lang",paste0(.libPaths(),"/memapp/shinyapp/lang"))
+  utils::head(translation.loc[dir.exists(translation.loc)],1)
+}
+
+get.languages<-function(){
+  langfiles<-data.frame(filename=tools::file_path_sans_ext(list.files(translation.dir(), ".*\\.txt")), stringsAsFactors = F)
+  locales<-read.locales.table()
+  languages<-dplyr::inner_join(locales,langfiles,by="filename")
+  # fix for linux locales
+  if (.Platform$OS.type=="unix"){
+    languages<-languages %>%
+      select(-localelinux) %>%
+      left_join(select(get.linux.locales(), -encoding), by=c('language.iso_639_1','country.iso_3166')) %>%
+      mutate(localelinux=if_else(is.na(localelinux),"",localelinux))
+  }
+  languages
+}
+
+read.locales.table<-function(){
+  locales<-utils::read.delim(paste0(translation.dir(),"/localestable.txt"),header=T,sep=";",row.names=NULL,fill=T,colClasses="character", as.is=T) %>%
+    extract(filename, into=c('language.iso_639_1', 'v1', 'country.iso_3166','v2','v3','encoding'), 
+            '^([:alpha:]{2})(_([:alpha:]{2}))?(([\\.]+)([^\\.]+))?$', remove=F) %>%
+    select(-v1,-v2,-v3) %>%
+    filter(!(is.na(language.iso_639_1) & is.na(country.iso_3166))) %>%
+    mutate(encoding=if_else(is.na(encoding),"",tolower(encoding)),
+           language.iso_639_1=if_else(is.na(language.iso_639_1),"",tolower(language.iso_639_1)),
+           country.iso_3166=if_else(is.na(country.iso_3166),"",toupper(country.iso_3166)))
+}
+
+get.linux.locales<-function(){
+  locales<-data.frame(localelinux=system("locale -a ", intern = TRUE), stringsAsFactors = F) %>%
+    extract(localelinux, into=c('language.iso_639_1', 'v1', 'country.iso_3166','v2','v3','encoding'), 
+            '^([:alpha:]{2})(_([:alpha:]{2}))?(([\\.]+)([^\\.]+))?$', remove=F) %>%
+    select(-v1,-v2,-v3) %>%
+    filter(!(is.na(language.iso_639_1) & is.na(country.iso_3166))) %>%
+    mutate(encoding=if_else(is.na(encoding),"",tolower(encoding)),
+           language.iso_639_1=if_else(is.na(language.iso_639_1),"",tolower(language.iso_639_1)),
+           country.iso_3166=if_else(is.na(country.iso_3166),"",toupper(country.iso_3166)))
+  # when there are more than one encoding i get the first one, ordering first
+  locales<-locales %>%
+    arrange(language.iso_639_1, country.iso_3166, factor(encoding, levels=unique(c("utf8","utf-8","",locales$encoding)))) %>%
+    group_by(language.iso_639_1, country.iso_3166) %>%
+    filter(row_number()==1) %>%
+    ungroup()
+  locales
+}
+
+
+read.language <- function(i.filename){
+  langs<-get.languages()
+  lfile<-paste0(translation.dir(),"/",i.filename,".txt")
+  if (file.exists(lfile)){
+    lines <- paste(readLines(lfile, n = -1, warn=F),collapse="")
+    if (stringi::stri_enc_isascii(lines)) {
+      myencoding<-"ASCII"
+    }else{
+      myencoding <- stringi::stri_enc_detect(lines)[[1]]$`Encoding`[1]
+    }
+    translation<-utils::read.delim(lfile,header=T,sep=";",row.names=NULL,fill=T,colClasses="character", as.is=T, encoding = myencoding)
+    names(translation)<-c("original","translated")
+    translation$filename<-i.filename
+  }else{
+    translation<-data.frame()
+  }
+  translation
+}
+
+build.languages <- function(){
+  cat("function/build.languages> begin\n")
+  translation.fil<-paste0(translation.dir(),"/translation.bin")
+  langs<-get.languages()
+  cat("function/build.languages> List of available languages:\n",paste0(paste0(langs$filename,"\t",langs$lang_name),collapse="\n"),"\n")
+  translationContent<-do.call(rbind,lapply(langs$filename,function(x) read.language(x)))
+  # To avoid R cmd check as for original, lang, translated as dplyr:select accept verbatim variable as input (not character)
+  original=filename=translated=NULL
+  translation <- translationContent %>% 
+    dplyr::select(original, filename, translated) %>% 
+    tidyr::spread(filename, translated, drop = FALSE, fill = NA)
+  save(translation, file = translation.fil)
+  cat(paste0("function/build.languages> Translation file saved to: ",tools::file_path_as_absolute(translation.fil)," (",NROW(translation)," items)"),"\n")
+  cat("function/build.languages> Language file built\n")
+  cat("function/build.languages> end\n")
+}
+
+get.r.versions <- function(){
+  list(
+    r=as.character(R.version$version.string),
+    platform=as.character(R.version$platform),
+    mem=if("mem" %in% rownames(installed.packages())) as.character(packageVersion("mem")) else "not installed",
+    memapp=if("memapp" %in% rownames(installed.packages())) as.character(packageVersion("memapp")) else "not installed"
+  )
+}

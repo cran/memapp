@@ -2,17 +2,12 @@ options(warn =-1)
 # route messages to output in the server
 if (!interactive()) sink(stderr(), type = "output")
 
-source("helpers.R")
-
 set.rzip()
 animationmethod<-animation.method()
-
-translation.loc<-c("lang","inst/shinyapp/lang",paste0(.libPaths(),"/memapp/shinyapp/lang"))
-translation.dir<-utils::head(translation.loc[dir.exists(translation.loc)],1)
-translation.fil<-paste0(translation.dir,"/translation.bin")
-
+translation.fil<-paste0(translation.dir(),"/translation.bin")
 load(translation.fil)
-cat(paste0("Translation file loaded from: ",tools::file_path_as_absolute(translation.fil)," (",NROW(translation)," items)"),"\n")
+cat(paste0("preparation> Translation file loaded from: ",tools::file_path_as_absolute(translation.fil)," (",NROW(translation)," items)"),"\n")
+cat("preparation> end\n")
 
 shinyServer(function(input, output, session) {
   
@@ -21,19 +16,21 @@ shinyServer(function(input, output, session) {
   #####################################
   
   values <- reactiveValues(origdata = NULL, plotdata = NULL, clickdata=NULL, idscreated = NULL, 
-                           optimizegraphs = NULL)
+                           optimizegraphs = NULL, locale=Sys.getlocale())
   
   #####################################
   ### SERVER-SIDE FUNCTIONS
   #####################################
   
-  trloc <- function(text){
-    as.character(sapply(text,function(s){
+  trloc <- function(i.text, i.trans=F){
+    txtres<-as.character(sapply(i.text, function(s){
       o.text<-tail(translation[translation$original==s,input$lang])
       if (NROW(o.text)!=1) o.text<-s
       if (is.na(o.text)) o.text<-s
       o.text
     }, USE.NAMES=FALSE))
+    if (i.trans) txtres<-stringi::stri_trans_general(txtres, "Latin-ASCII")
+    txtres
   }
   
   plotSeasons <- function(i.data,
@@ -51,6 +48,7 @@ shinyServer(function(input, output, session) {
                           i.colObservedPoints="#000000",
                           i.colSeasons=NA,
                           i.colThresholds=c("#8c6bb1","#88419d","#810f7c","#4d004b","#c0c0ff"),
+                          i.yaxis.starts.at.0=F,
                           ...){
     
     if(is.null(i.data)){
@@ -169,7 +167,9 @@ shinyServer(function(input, output, session) {
       names(dgraf)<-labels
       dgraf$week<-1:NROW(dgraf)
       
-      dgrafgg<-melt(dgraf,id="week")
+      #dgrafgg<-reshape2::melt(dgraf,id="week")
+      dgrafgg <- dgraf %>% tidyr::gather(variable, value, -week)
+      dgrafgg$variable<-factor(dgrafgg$variable, levels=labels, labels=labels)
       
       selected.indicators<-(1:(2*NCOL(data.full)))[apply(dgraf[1:(2*NCOL(data.full))],2,function(x) !all(is.na(x)))]
       if (i.pre.epidemic) selected.indicators<-c(selected.indicators,2*NCOL(data.full)+1)
@@ -197,16 +197,18 @@ shinyServer(function(input, output, session) {
       
       # Range y fix
       if (length(i.range.y)!=2){
-        i.range.y <- c(0,1.05*max(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T))
-      }else{
-        i.range.y <- 1.05*i.range.y
+        if (i.yaxis.starts.at.0){
+          i.range.y <- c(0,1.05*max(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T))  
+        }else{
+          i.range.y <- c(0.95*min(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T),1.05*max(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T))
+        }
       }
       axis.y.range.original <- i.range.y
       axis.y.otick <- optimal.tickmarks(axis.y.range.original[1], axis.y.range.original[2],10)
       axis.y.range <- axis.y.otick$range
       axis.y.ticks <- axis.y.otick$tickmarks
       axis.y.labels <- axis.y.otick$tickmarks
-      
+
       gplot<-ggplot(dgrafgg.s) +
         geom_line(aes(x=week,y=value,group=variable, color=variable, linetype=variable),size=0.5) +
         geom_point(aes(x=week,y=value,group=variable, color=variable, size=variable, fill=variable, shape=variable), color="#ffffff", stroke = 0.1) +
@@ -244,6 +246,7 @@ shinyServer(function(input, output, session) {
                        i.colThresholds=c("#8c6bb1","#88419d","#810f7c","#4d004b","#c0c0ff"),
                        i.colObservedPoints="#000000",
                        i.colEpidemic=c("#00C000","#800080","#FFB401"),
+                       i.yaxis.starts.at.0=F,
                        ...){
     
     if(is.null(i.data)){
@@ -393,7 +396,9 @@ shinyServer(function(input, output, session) {
       names(dgraf)<-labels
       dgraf$week<-1:NROW(dgraf)
       
-      dgrafgg<-melt(dgraf,id="week")
+      #dgrafgg<-reshape2::melt(dgraf,id="week")
+      dgrafgg <- dgraf %>% tidyr::gather(variable, value, -week)
+      dgrafgg$variable<-factor(dgrafgg$variable, levels=labels, labels=labels)
       
       selected.indicators<-1
       if (i.plot.timing){
@@ -433,9 +438,11 @@ shinyServer(function(input, output, session) {
       
       # Range y fix
       if (length(i.range.y)!=2){
-        i.range.y <- c(0,1.05*max(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T))
-      }else{
-        i.range.y <- 1.05*i.range.y
+        if (i.yaxis.starts.at.0){
+          i.range.y <- c(0,1.05*max(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T))  
+        }else{
+          i.range.y <- c(0.95*min(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T),1.05*max(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T))
+        }
       }
       axis.y.range.original <- i.range.y
       axis.y.otick <- optimal.tickmarks(axis.y.range.original[1], axis.y.range.original[2],10)
@@ -457,7 +464,7 @@ shinyServer(function(input, output, session) {
         ggthemes::theme_few() +
         theme(plot.title = element_text(hjust = 0.5))
       p<-list(plot=gplot,labels=labels.s,haspoints=haspoints.s,haslines=haslines.s,
-              weeklabels=paste(data.orig$week,"<br />Season: ",data.orig$season,sep=""), gdata=dgrafgg.s)
+              weeklabels=paste(data.orig$week,paste0("<br />",trloc("Season"),": "),data.orig$season,sep=""), gdata=dgrafgg.s)
     }
     p
   }
@@ -486,7 +493,9 @@ shinyServer(function(input, output, session) {
                              i.colObservedPoints="#000000",
                              i.colEpidemicStart="#FF0000",
                              i.colEpidemicStop="#40FF40",
-                             i.colThresholds=c("#8c6bb1","#88419d","#810f7c","#4d004b","#c0c0ff")){
+                             i.colThresholds=c("#8c6bb1","#88419d","#810f7c","#4d004b","#c0c0ff"),
+                             i.yaxis.starts.at.0=F
+                             ){
     
     # check parameters
     if (is.null(i.data)) {
@@ -664,7 +673,9 @@ shinyServer(function(input, output, session) {
       names(dgraf)<-labels
       dgraf$week<-1:semanas
       
-      dgrafgg<-melt(dgraf,id="week")
+      # dgrafgg<-reshape2::melt(dgraf,id="week")
+      dgrafgg <- dgraf %>% tidyr::gather(variable, value, -week)
+      dgrafgg$variable<-factor(dgrafgg$variable, levels=labels, labels=labels)
       
       selected.indicators<-1
       if (i.pre.epidemic) selected.indicators<-c(selected.indicators,2)
@@ -697,9 +708,11 @@ shinyServer(function(input, output, session) {
       # Same, for 10 tickmarks in the y-axis
       # Range y fix
       if (length(i.range.y)!=2){
-        i.range.y <- c(0,1.05*max(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T))
-      }else{
-        i.range.y <- 1.05*i.range.y
+        if(i.yaxis.starts.at.0){
+          i.range.y <- c(0,1.05*max(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T))  
+        }else{
+          i.range.y <- c(0.95*min(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T),1.05*max(subset(dgrafgg.s,variable!="week",select="value"),na.rm=T))
+        }
       }
       axis.y.range.original <- i.range.y
       axis.y.otick <- optimal.tickmarks(axis.y.range.original[1], axis.y.range.original[2],10)
@@ -738,14 +751,19 @@ shinyServer(function(input, output, session) {
                           i.replace.x.cr=F,
                           i.textMain="",
                           i.textX="",
-                          i.textY=""){
+                          i.textY="",
+                          i.yaxis.starts.at.0=F
+                          ){
     if(is.null(i.data)){
       p<-NULL
     }else{
       dgraf<-i.data
       labels<-names(dgraf)
       dgraf$num<-1:NROW(dgraf)
-      dgrafgg<-melt(dgraf,id="num")
+      
+      #dgrafgg<-reshape2::melt(dgraf,id="num")
+      dgrafgg <- dgraf %>% tidyr::gather(variable, value, -num)
+      dgrafgg$variable<-factor(dgrafgg$variable, levels=labels, labels=labels)
       
       # Calculate ticks for x
       axis.x.range <- c(1,NROW(dgraf))
@@ -755,9 +773,11 @@ shinyServer(function(input, output, session) {
       # Range y fix
       if (length(i.range.y.labels)<2){
         if (length(i.range.y)!=2){
-          i.range.y <- c(0,1.05*max(dgrafgg$value,na.rm=T))
-        }else{
-          i.range.y <- 1.05*i.range.y
+          if(i.yaxis.starts.at.0){
+            i.range.y <- c(0,1.05*max(dgrafgg$value,na.rm=T))
+          }else{
+            i.range.y <- c(0.95*min(dgrafgg$value,na.rm=T),1.05*max(dgrafgg$value,na.rm=T)) 
+          }
         }
         axis.y.range.original <- i.range.y
         axis.y.otick <- optimal.tickmarks(axis.y.range.original[1], axis.y.range.original[2],10)
@@ -797,6 +817,7 @@ shinyServer(function(input, output, session) {
   
   data_model <- reactive({
     readdata <- read_data()
+    cat("reactive/data_model> begin\n")
     datfile <- readdata$datasetread
     if(is.null(datfile)){
       epi<-NULL
@@ -828,11 +849,13 @@ shinyServer(function(input, output, session) {
                         i.n.max=as.numeric(input$nvalues))
       }
     }
+    cat("reactive/data_model> end\n")
     epi
   })
   
   data_good_model <- reactive({
     readdata <- read_data()
+    cat("reactive/data_good_model> begin\n")
     datfile <- readdata$datasetread
     if(is.null(datfile)){
       good<-NULL
@@ -884,11 +907,13 @@ shinyServer(function(input, output, session) {
       }
       gfile
     })})
+    cat("reactive/data_good_model> end\n")
     good
   })
   
   data_good_global <- reactive({
     readdata <- read_data()
+    cat("reactive/data_good_global> begin\n")
     datfile <- readdata$datasetread
     if(is.null(datfile)){
       good<-NULL
@@ -945,11 +970,13 @@ shinyServer(function(input, output, session) {
       }
       gfile
     })})
+    cat("reactive/data_good_global> end\n")
     good
   })
   
   data_optim <- reactive({
     readdata <- read_data()
+    cat("reactive/data_optim> begin\n")
     datfile <- readdata$datasetread
     if(is.null(datfile)){
       roca<-NULL
@@ -982,11 +1009,13 @@ shinyServer(function(input, output, session) {
                            i.goodness.method=as.character(input$validation))
       }
     }
+    cat("reactive/data_optim> end\n")
     roca
   })
   
   data_evolution <- reactive({
     readdata <- read_data()
+    cat("reactive/data_evolution> begin\n")
     datfile <- readdata$datasetread
     if(is.null(datfile)){
       evo<-NULL
@@ -1009,11 +1038,13 @@ shinyServer(function(input, output, session) {
                           i.param=as.numeric(input$param),
                           i.n.max=as.numeric(input$nvalues))
     }
+    cat("reactive/data_evolution> end\n")
     evo
   })
   
   data_stability <- reactive({
     readdata <- read_data()
+    cat("reactive/data_stability> begin\n")
     datfile <- readdata$datasetread
     if(is.null(datfile)){
       sta<-NULL
@@ -1034,6 +1065,7 @@ shinyServer(function(input, output, session) {
                           i.param=as.numeric(input$param),
                           i.n.max=as.numeric(input$nvalues))
     }
+    cat("reactive/data_stability> end\n")
     sta
   })
   
@@ -1041,32 +1073,32 @@ shinyServer(function(input, output, session) {
     infile <- input$file
     indataset <- input$dataset
     inname <- infile$name
+    cat("reactive/read_data> begin\n")
     i.range.x<-rep(NA,2)
     if (!is.null(input$firstWeek)) i.range.x[1]<-as.numeric(input$firstWeek)
     if (!is.null(input$lastWeek)) i.range.x[2]<-as.numeric(input$lastWeek)
-    cat("read_data> ------------------------------------------\n")
-    cat("read_data> Name: ",inname,"\n")
-    cat("read_data> Dataset: ",indataset,"\n")
-    cat("read_data> Range: ",i.range.x[1],"-",i.range.x[2],"\n")
+    cat("reactive/read_data> Name: ",inname,"\n")
+    cat("reactive/read_data> Dataset: ",indataset,"\n")
+    cat("reactive/read_data> Range: ",i.range.x[1],"-",i.range.x[2],"\n")
     if(is.null(infile)){
       datasets=NULL
       datasetread=NULL
-      cat("read_data> Warning: No file\n")
+      cat("reactive/read_data> Warning: No file\n")
     }else if(is.null(indataset)){
-      temp1<-read.data(i.file=infile$datapath, i.file.name=inname)
+      temp1<-read.data(i.file=infile$datapath, i.file.name=inname, i.process.data=input$processdata)
       datasets=temp1$datasets
       datasetread=temp1$datasetread
       rm("temp1")
-      cat("read_data> Warning: No dataset\n")
+      cat("reactive/read_data> Warning: No dataset\n")
     }else if (indataset==""){
-      temp1<-read.data(i.file=infile$datapath, i.file.name=inname)
+      temp1<-read.data(i.file=infile$datapath, i.file.name=inname, i.process.data=input$processdata)
       datasets=temp1$datasets
       datasetread=temp1$datasetread
       rm("temp1")
-      cat("read_data> Warning: No dataset\n")
+      cat("reactive/read_data> Warning: No dataset\n")
     }else{
-      temp1<-read.data(i.file=infile$datapath, i.file.name=inname, i.dataset = indataset, i.range.x=i.range.x)
-      temp2<-read.data(i.file=infile$datapath, i.file.name=inname, i.dataset = indataset)
+      temp1<-read.data(i.file=infile$datapath, i.file.name=inname, i.dataset = indataset, i.range.x=i.range.x, i.process.data=input$processdata)
+      temp2<-read.data(i.file=infile$datapath, i.file.name=inname, i.dataset = indataset, i.process.data=input$processdata)
       datasets=temp1$datasets
       datasetread=temp1$datasetread
       rm("temp1")
@@ -1079,41 +1111,14 @@ shinyServer(function(input, output, session) {
       dataweeksoriginal=NULL
       dataweeksfiltered=NULL
     }
-    cat("read_data> datasets returning NULL?: ",is.null(datasets),"\n")
-    cat("read_data> dataweeksoriginal returning NULL?: ",is.null(dataweeksoriginal),"\n")
-    cat("read_data> dataweeksfiltered returning NULL?: ",is.null(dataweeksfiltered),"\n")
-    cat("read_data> datasetread NULL?: ",is.null(datasetread),"\n")
-    cat("read_data> ------------------------------------------\n")
+    cat("reactive/read_data> datasets returning NULL?: ",is.null(datasets),"\n")
+    cat("reactive/read_data> dataweeksoriginal returning NULL?: ",is.null(dataweeksoriginal),"\n")
+    cat("reactive/read_data> dataweeksfiltered returning NULL?: ",is.null(dataweeksfiltered),"\n")
+    cat("reactive/read_data> datasetread NULL?: ",is.null(datasetread),"\n")
+    cat("reactive/read_data> end\n")
     readdata<-list(datasets=datasets, datasetread=datasetread, dataweeksoriginal=dataweeksoriginal, dataweeksfiltered=dataweeksfiltered)
     readdata
   })
-  
-  getDatasets <- eventReactive(input$file, {
-    cat("reactive/getDatasets> begin\n")
-    readdata <- read_data()
-    datsheets <- readdata$datasets
-    if (!is.null(datsheets)) cat("reactive/getDatasets> updating dataset list\n")    
-    cat("reactive/getDatasets> end\n")
-    return(datsheets)
-  })
-  
-  getWeeksOriginal <- eventReactive(input$dataset, {
-    cat("reactive/getWeeksOriginal> begin\n")
-    readdata <- read_data()
-    dataweeksoriginal <- readdata$dataweeksoriginal
-    if (!is.null(dataweeksoriginal)) cat("reactive/getWeeksOriginal> updating first/last week list\n")
-    cat("reactive/getWeeksOriginal> end\n")
-    return(dataweeksoriginal)
-  })
-  
-  getWeeksFiltered <- eventReactive(c(input$dataset,input$firstWeek,input$lastWeek), {
-    cat("reactive/getWeeksFiltered> begin\n")
-    readdata <- read_data()
-    dataweeksfiltered <- readdata$dataweeksfiltered
-    if (!is.null(dataweeksfiltered)) cat("reactive/getWeeksFiltered> updating first/last week list\n")
-    cat("reactive/getWeeksFiltered> end\n")
-    return(dataweeksfiltered)
-  })  
   
   getSeasons <- reactive({
     cat("reactive/getSeasons> begin\n")
@@ -1124,19 +1129,90 @@ shinyServer(function(input, output, session) {
     cat("reactive/getSeasons> end\n")
     return(seasons)
   })
+
+  getDatasets <- eventReactive(input$file, {
+    cat("eventReactive/getDatasets> begin\n")
+    readdata <- read_data()
+    datsheets <- readdata$datasets
+    if (!is.null(datsheets)) cat("eventReactive/getDatasets> updating dataset list\n")    
+    cat("eventReactive/getDatasets> end\n")
+    return(datsheets)
+  })
+  
+  getWeeksOriginal <- eventReactive(input$dataset, {
+    cat("eventReactive/getWeeksOriginal> begin\n")
+    readdata <- read_data()
+    dataweeksoriginal <- readdata$dataweeksoriginal
+    if (!is.null(dataweeksoriginal)) cat("reactive/getWeeksOriginal> updating first/last week list\n")
+    cat("eventReactive/getWeeksOriginal> end\n")
+    return(dataweeksoriginal)
+  })
+  
+  getWeeksFiltered <- eventReactive(c(input$dataset,input$firstWeek,input$lastWeek), {
+    cat("eventReactive/getWeeksFiltered> begin\n")
+    readdata <- read_data()
+    dataweeksfiltered <- readdata$dataweeksfiltered
+    if (!is.null(dataweeksfiltered)) cat("reactive/getWeeksFiltered> updating first/last week list\n")
+    cat("eventReactive/getWeeksFiltered> end\n")
+    return(dataweeksfiltered)
+  })  
   
   #####################################
   ### OBSERVERS
   #####################################
-
+  # Pass url parameters to the app, in this case to advanced features, once the server is run, you can
+  # use http://127.0.0.1:7910/?advancedfeatures=TRUE to enable/disable advanced features
+  
+  observe({
+    cat("observe/urlquery> begin\n")
+    query <- parseQueryString(session$clientData$url_search)
+    cat("observe/urlquery> searching for language URL parameter\n")
+    if (!is.null(query[['language']])) {
+      cat("query> language ", query[['language']],"\n")
+      updateSelectInput(session, "lang", selected = as.character(query[['language']]))
+    }
+    cat("observe/urlquery> searching for advanced features URL parameter\n")
+    if (!is.null(query[['advancedfeatures']])) {
+      cat("query> advancedfeatures ", query[['advancedfeatures']],"\n")
+      updateCheckboxInput(session, "advancedfeatures", value = as.logical(query[['advancedfeatures']]))
+    }
+    cat("observe/urlquery> begin\n")
+  })
+  
+  observeEvent(input$lang, {
+    lang<-input$lang
+    cat("observeEvent/language> begin\n")
+    cat("observeEvent/language> original locale:",values$locale,"\n")
+    langs<-get.languages()
+    if (lang %in% langs$filename){
+      if (.Platform$OS.type=="windows"){
+        cat("observeEvent/language> Windows system detected\n")
+        localestring<-langs$localewin[langs$filename==lang]
+      }else if (.Platform$OS.type=="unix"){
+        cat("observeEvent/language> *nix system detected\n")
+        localestring<-langs$localelinux[langs$filename==lang]
+        if (localestring=="") cat("observeEvent/language> Locale not installed in your system\n")
+      }else{
+        cat("observeEvent/language> No windows or *nix system detected\n")
+        localestring<-""
+      }
+      cat("observeEvent/language> changing to:",dplyr::if_else(localestring=="","system default",localestring),"\n")
+      Sys.setlocale(locale = localestring)
+    }else{
+      cat("observeEvent/language> language not in the locales list\n")      
+    }
+    cat("observeEvent/language> current locale:",Sys.getlocale(),"\n")
+    cat("observeEvent/language> end\n")
+  })
+  
   observeEvent(read_data(), {
-    cat("observe/read_data> begin\n")
+    cat("observeEvent/read_data> begin\n")
     readdata <- read_data()
     datfile <- readdata$datasetread
     datsheets <- readdata$datasets
     if (!is.null(datfile)){
       seasons<-names(datfile)
-      cat("observe/read_data> updating timing plots\n")
+      cat("observeEvent/read_data> updating timing plots\n")
       lapply(seasons, function(s){output[[paste0("tbdTiming_",as.character(s))]] <- renderPlotly({
         if(is.null(datfile)){
           zfix<-NULL
@@ -1177,12 +1253,14 @@ shinyServer(function(input, output, session) {
                           i.colObservedLines=colors.palette$colObservedLines,
                           i.colThresholds=colors.palette$colThresholds,
                           i.colObservedPoints=colors.palette$colObservedPoints,
-                          i.colEpidemic=colors.palette$colEpidemic)
+                          i.colEpidemic=colors.palette$colEpidemic,
+                          i.yaxis.starts.at.0=as.logical(input$yaxis0)
+          )
           if (is.null(p)){
             zfix<-NULL
           }else{
             z <- ggplotly(p$plot, width = 800, height = 600)
-            zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+            zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
           }
         }
         zfix
@@ -1229,12 +1307,14 @@ shinyServer(function(input, output, session) {
                           i.colObservedLines=colors.palette$colObservedLines,
                           i.colThresholds=colors.palette$colThresholds,
                           i.colObservedPoints=colors.palette$colObservedPoints,
-                          i.colEpidemic=colors.palette$colEpidemic)
+                          i.colEpidemic=colors.palette$colEpidemic,
+                          i.yaxis.starts.at.0=as.logical(input$yaxis0)
+          )
           if (is.null(p)){
             zfix<-NULL
           }else{
             z <- ggplotly(p$plot, width = 800, height = 600)
-            zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+            zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
           }
         }
         zfix
@@ -1281,17 +1361,19 @@ shinyServer(function(input, output, session) {
                           i.colObservedLines=colors.palette$colObservedLines,
                           i.colThresholds=colors.palette$colThresholds,
                           i.colObservedPoints=colors.palette$colObservedPoints,
-                          i.colEpidemic=colors.palette$colEpidemic)
+                          i.colEpidemic=colors.palette$colEpidemic,
+                          i.yaxis.starts.at.0=as.logical(input$yaxis0)
+          )
           if (is.null(p)){
             zfix<-NULL
           }else{
             z <- ggplotly(p$plot, width = 800, height = 600)
-            zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+            zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
           }
         }
         zfix
       })})
-      cat("observe/read_data> updating manual optimization plots\n")
+      cat("observeEvent/read_data> updating manual optimization plots\n")
       selectedcolumns<-select.columns(i.names=names(datfile), i.from=input$SelectFrom, i.to=input$SelectTo,
                                       i.exclude=input$SelectExclude, i.include="",
                                       i.pandemic=T,
@@ -1466,22 +1548,7 @@ shinyServer(function(input, output, session) {
         })
       }
     }
-    cat("observe/read_data> end\n")
-  })
-  
-  # Pass url parameters to the app, in this case to advanced features, once the server is run, you can
-  # use http://127.0.0.1:7910/?advancedfeatures=TRUE to enable/disable advanced features
-  
-  observe({
-    query <- parseQueryString(session$clientData$url_search)
-    if (!is.null(query[['language']])) {
-      cat("query> language ", query[['language']],"\n")
-      updateSelectInput(session, "lang", selected = as.character(query[['language']]))
-    }
-    if (!is.null(query[['advancedfeatures']])) {
-      cat("query> advancedfeatures ", query[['advancedfeatures']],"\n")
-      updateCheckboxInput(session, "advancedfeatures", value = as.logical(query[['advancedfeatures']]))
-    }
+    cat("observeEvent/read_data> end\n")
   })
   
   #####################################
@@ -1660,12 +1727,14 @@ shinyServer(function(input, output, session) {
                          i.n.max=as.numeric(input$nvalues),
                          i.colObservedPoints=colors.palette$colObservedPoints,
                          i.colSeasons=colors.palette$colSeasons,
-                         i.colThresholds=colors.palette$colThresholds)
+                         i.colThresholds=colors.palette$colThresholds,
+                         i.yaxis.starts.at.0=as.logical(input$yaxis0)
+        )
         if (is.null(p)){
           zfix<-NULL
         }else{
           z <- ggplotly(p$plot, width = 800, height = 600)
-          zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+          zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
         }
       }
     }
@@ -1721,12 +1790,14 @@ shinyServer(function(input, output, session) {
                         i.colObservedLines=colors.palette$colObservedLines,
                         i.colThresholds=colors.palette$colThresholds,
                         i.colObservedPoints=colors.palette$colObservedPoints,
-                        i.colEpidemic=colors.palette$colEpidemic)
+                        i.colEpidemic=colors.palette$colEpidemic,
+                        i.yaxis.starts.at.0=as.logical(input$yaxis0)
+        )
         if (is.null(p)){
           zfix<-NULL
         }else{
           z <- ggplotly(p$plot, width = 800, height = 600)
-          zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+          zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
         }
       }
     }
@@ -1819,7 +1890,8 @@ shinyServer(function(input, output, session) {
                      i.replace.x.cr=T,
                      i.textMain=input$textMain,
                      i.textX=input$textX,
-                     i.textY=input$textY
+                     i.textY=input$textY,
+                     i.yaxis.starts.at.0=as.logical(input$yaxis0)
       )
       if (is.null(p)){
         zfix<-NULL
@@ -1829,7 +1901,7 @@ shinyServer(function(input, output, session) {
                         names(datfile.plot),
                         rep(T,NCOL(datfile.plot)),
                         rep(T,NCOL(datfile.plot)),
-                        "num",
+                        trloc("Season"),
                         "value",
                         rownames(datfile.plot))
       }
@@ -1868,7 +1940,8 @@ shinyServer(function(input, output, session) {
                      i.replace.x.cr=T,
                      i.textMain=input$textMain,
                      i.textX=input$textX,
-                     i.textY=input$textY
+                     i.textY=input$textY,
+                     i.yaxis.starts.at.0=as.logical(input$yaxis0)
       )
       
       if (is.null(p)){
@@ -1879,11 +1952,11 @@ shinyServer(function(input, output, session) {
                         names(datfile.plot),
                         rep(T,NCOL(datfile.plot)),
                         rep(T,NCOL(datfile.plot)),
-                        "num",
+                        trloc("Season"),
                         "value",
                         rownames(datfile.plot))
         # fix to replace relative to absolute weeks
-        for (i in 1:3) zfix$x$data[[i]]$text<-paste("Week: ",rownames(datfile.plot),"<br />",names(datfile.plot),": ", rownames(datfile)[datfile.plot[,i]],sep="")
+        for (i in 1:3) zfix$x$data[[i]]$text<-paste(trloc("Season"),": ",rownames(datfile.plot),"<br />",names(datfile.plot)[i],": ", rownames(datfile)[datfile.plot[,i]],sep="")
       }
     }
     zfix
@@ -1918,7 +1991,8 @@ shinyServer(function(input, output, session) {
                      i.replace.x.cr=T,
                      i.textMain=input$textMain,
                      i.textX=input$textX,
-                     i.textY=input$textY
+                     i.textY=input$textY,
+                     i.yaxis.starts.at.0=as.logical(input$yaxis0)
       )
       if (is.null(p)){
         zfix<-NULL
@@ -1928,7 +2002,7 @@ shinyServer(function(input, output, session) {
                         names(datfile.plot),
                         rep(T,NCOL(datfile.plot)),
                         rep(T,NCOL(datfile.plot)),
-                        "num",
+                        trloc("Season"),
                         "value",
                         rownames(datfile.plot))
       }
@@ -1965,7 +2039,8 @@ shinyServer(function(input, output, session) {
                      i.replace.x.cr=T,
                      i.textMain=input$textMain,
                      i.textX=input$textX,
-                     i.textY=input$textY
+                     i.textY=input$textY,
+                     i.yaxis.starts.at.0=as.logical(input$yaxis0)
       )
       if (is.null(p)){
         zfix<-NULL
@@ -1975,7 +2050,7 @@ shinyServer(function(input, output, session) {
                         names(datfile.plot),
                         rep(T,NCOL(datfile.plot)),
                         rep(T,NCOL(datfile.plot)),
-                        "num",
+                        trloc("Season"),
                         "value",
                         rownames(datfile.plot))
       }
@@ -2095,7 +2170,8 @@ shinyServer(function(input, output, session) {
                      i.linesize=1,
                      i.textMain=input$textMain,
                      i.textX=input$textX,
-                     i.textY=input$textY
+                     i.textY=input$textY,
+                     i.yaxis.starts.at.0=as.logical(input$yaxis0)
       )
       if (is.null(p)){
         zfix<-NULL
@@ -2105,7 +2181,7 @@ shinyServer(function(input, output, session) {
                         names(datfile.plot),
                         rep(T,NCOL(datfile.plot)),
                         rep(T,NCOL(datfile.plot)),
-                        "num",
+                        trloc("Seasons"),
                         "value",
                         rownames(datfile.plot))
       }
@@ -2142,7 +2218,8 @@ shinyServer(function(input, output, session) {
                      i.linesize=1,
                      i.textMain=input$textMain,
                      i.textX=input$textX,
-                     i.textY=input$textY
+                     i.textY=input$textY,
+                     i.yaxis.starts.at.0=as.logical(input$yaxis0)
       )
       if (is.null(p)){
         zfix<-NULL
@@ -2152,11 +2229,11 @@ shinyServer(function(input, output, session) {
                         names(datfile.plot),
                         rep(T,NCOL(datfile.plot)),
                         rep(T,NCOL(datfile.plot)),
-                        "num",
+                        trloc("Seasons"),
                         "value",
                         rownames(datfile.plot))
         # fix to replace relative to absolute weeks
-        for (i in 1:3) zfix$x$data[[i]]$text<-paste("Week: ",rownames(datfile.plot),"<br />",names(datfile.plot),": ", rownames(datfile)[datfile.plot[,i]],sep="")
+        for (i in 1:3) zfix$x$data[[i]]$text<-paste(trloc("Seasons"),": ",rownames(datfile.plot),"<br />",names(datfile.plot)[i],": ", rownames(datfile)[datfile.plot[,i]],sep="")
       }
     }
     zfix
@@ -2189,7 +2266,8 @@ shinyServer(function(input, output, session) {
                      i.linesize=1,
                      i.textMain=input$textMain,
                      i.textX=input$textX,
-                     i.textY=input$textY
+                     i.textY=input$textY,
+                     i.yaxis.starts.at.0=as.logical(input$yaxis0)
       )
       if (is.null(p)){
         zfix<-NULL
@@ -2199,7 +2277,7 @@ shinyServer(function(input, output, session) {
                         names(datfile.plot),
                         rep(T,NCOL(datfile.plot)),
                         rep(T,NCOL(datfile.plot)),
-                        "num",
+                        trloc("Seasons"),
                         "value",
                         rownames(datfile.plot))
       }
@@ -2234,7 +2312,8 @@ shinyServer(function(input, output, session) {
                      i.linesize=1,
                      i.textMain=input$textMain,
                      i.textX=input$textX,
-                     i.textY=input$textY
+                     i.textY=input$textY,
+                     i.yaxis.starts.at.0=as.logical(input$yaxis0)
       )
       if (is.null(p)){
         zfix<-NULL
@@ -2244,7 +2323,7 @@ shinyServer(function(input, output, session) {
                         names(datfile.plot),
                         rep(T,NCOL(datfile.plot)),
                         rep(T,NCOL(datfile.plot)),
-                        "num",
+                        trloc("Seasons"),
                         "value",
                         rownames(datfile.plot))
       }
@@ -2657,12 +2736,14 @@ shinyServer(function(input, output, session) {
                        i.n.max=as.numeric(input$nvalues),
                        i.colObservedPoints=colors.palette$colObservedPoints,
                        i.colSeasons=colors.palette$colSeasons,
-                       i.colThresholds=colors.palette$colThresholds)
+                       i.colThresholds=colors.palette$colThresholds,
+                       i.yaxis.starts.at.0=as.logical(input$yaxis0)
+      )
       if (is.null(p)){
         zfix<-NULL
       }else{
         z <- ggplotly(p$plot, width = 800, height = 600)
-        zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+        zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
       }
     }
     zfix
@@ -2713,12 +2794,14 @@ shinyServer(function(input, output, session) {
                       i.colObservedLines=colors.palette$colObservedLines,
                       i.colThresholds=colors.palette$colThresholds,
                       i.colObservedPoints=colors.palette$colObservedPoints,
-                      i.colEpidemic=colors.palette$colEpidemic)
+                      i.colEpidemic=colors.palette$colEpidemic,
+                      i.yaxis.starts.at.0=as.logical(input$yaxis0)
+      )
       if (is.null(p)){
         zfix<-NULL
       }else{
         z <- ggplotly(p$plot, width = 800, height = 600)
-        zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+        zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
       }
     }
     zfix
@@ -2837,7 +2920,9 @@ shinyServer(function(input, output, session) {
                        i.n.max=as.numeric(input$nvalues),
                        i.colObservedPoints=colors.palette$colObservedPoints,
                        i.colSeasons=colors.palette$colSeasons,
-                       i.colThresholds=colors.palette$colThresholds)
+                       i.colThresholds=colors.palette$colThresholds,
+                       i.yaxis.starts.at.0=as.logical(input$yaxis0)
+      )
       if (is.null(p)){
         zfix<-NULL
       }else{
@@ -2863,7 +2948,7 @@ shinyServer(function(input, output, session) {
                         c(p$labels,trloc(c("Mean start","Mean end"))),
                         c(p$haslines,T,T),
                         c(p$haspoints,F,F),
-                        "week","value",p$weeklabels)
+                        trloc("Week"),"value",p$weeklabels)
       }
     }
     zfix
@@ -2907,12 +2992,14 @@ shinyServer(function(input, output, session) {
                             i.colObservedPoints=colors.palette$colObservedPoints,
                             i.colEpidemicStart=colors.palette$colEpidemicStart,
                             i.colEpidemicStop=colors.palette$colEpidemicStop,
-                            i.colThresholds=colors.palette$colThresholds)
+                            i.colThresholds=colors.palette$colThresholds,
+                            i.yaxis.starts.at.0=as.logical(input$yaxis0)
+      )
       if (is.null(p)){
         zfix<-NULL
       }else{
         z <- ggplotly(p$plot, width = 800, height = 600)
-        zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+        zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
       }
     }
     zfix
@@ -3259,7 +3346,8 @@ shinyServer(function(input, output, session) {
     datfile <- readdata$datasetread
     if (NROW(values$clickdata)>0){
       etwo<-extract.two(values$clickdata,"weekno","season")
-      etwot<-reshape2::dcast(etwo, season ~  id.tail, value.var="weekno")
+      etwot <- etwo %>% select(id.tail, season, weekno) %>% tidyr::spread(id.tail, weekno, drop = FALSE, fill = NA)
+      
       selectedcolumns<-select.columns(i.names=names(datfile), i.from=input$SelectFrom, i.to=input$SelectTo,
                                       i.exclude=input$SelectExclude, i.include="",
                                       i.pandemic=T,
@@ -3653,7 +3741,10 @@ shinyServer(function(input, output, session) {
     }else{
       dgraf<-subset(dataoptim$roc.data,select=c("value","sensitivity","specificity","positive.predictive.value","negative.predictive.value","percent.agreement","matthews.correlation.coefficient","youdens.index"))
       names(dgraf)<-c("Parameter", trloc(c("Sensitivity","Specificity","Positive predictive value","Negative predictive value","Percent agreement","Matthews correlation coefficient","Youdens Index")))
-      dgrafgg<-melt(dgraf,id="Parameter", value.name = "Value", variable.name = "Indicator")
+      # dgrafgg<-reshape2::melt(dgraf,id="Parameter", value.name = "Value", variable.name = "Indicator")
+      dgrafgg <- dgraf %>% tidyr::gather(Indicator, Value, -Parameter)
+      dgrafgg$Indicator<-factor(dgrafgg$Indicator, levels=names(dgraf)[-1], labels=names(dgraf)[-1])
+      
       colors.palette<-generate_palette(i.number.series=NCOL(dgraf)-1,
                                        i.colObservedLines=input$colObservedLines,
                                        i.colObservedPoints=input$colObservedPoints,
@@ -3685,6 +3776,12 @@ shinyServer(function(input, output, session) {
         theme(plot.title = element_text(hjust = 0.5))
       
       z<-ggplotly(p, width = 800, height = 600)
+      # fix popup values
+      for (i in 1:length(z$x$data)){
+        z$x$data[[i]]$text<-gsub("Parameter",trloc("Parameter"),z$x$data[[i]]$text, fixed=T)
+        z$x$data[[i]]$text<-gsub("Value",trloc("Value"),z$x$data[[i]]$text, fixed=T)
+        z$x$data[[i]]$text<-gsub("Indicator",trloc("Indicator"),z$x$data[[i]]$text, fixed=T)
+      }
     }
     z
   })
@@ -3822,12 +3919,14 @@ shinyServer(function(input, output, session) {
                             i.colObservedPoints=colors.palette$colObservedPoints,
                             i.colEpidemicStart=colors.palette$colEpidemicStart,
                             i.colEpidemicStop=colors.palette$colEpidemicStop,
-                            i.colThresholds=colors.palette$colThresholds)
+                            i.colThresholds=colors.palette$colThresholds,
+                            i.yaxis.starts.at.0=as.logical(input$yaxis0)
+      )
       if (is.null(p)){
         zfix<-NULL
       }else{
         z <- ggplotly(p$plot, width = 800, height = 600)
-        zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+        zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
       }
     }
     zfix
@@ -3864,7 +3963,8 @@ shinyServer(function(input, output, session) {
         i.thr<-NA
       }
       datfile.plot<-datfile[input$SelectSurveillance]
-      max.y<-max(datfile.plot,na.rm=T)
+      if (as.logical(input$yaxis0)) min.y<-0 else min.y<-0.95*min(datfile.plot, na.rm=T)
+      max.y<-1.05*max(datfile.plot, na.rm=T)
       if (as.logical(input$preepidemicthr)) max.y<-max(max.y,e.thr[1],na.rm=T)
       if (as.logical(input$postepidemicthr)) max.y<-max(max.y,e.thr[2],na.rm=T)
       if (as.logical(input$intensitythr)) max.y<-max(max.y,i.thr,na.rm=T)
@@ -3888,7 +3988,7 @@ shinyServer(function(input, output, session) {
                             i.epidemic.thr = e.thr,
                             i.intensity = as.logical(input$intensitythr),
                             i.intensity.thr = i.thr,
-                            i.range.y=c(0,max.y),
+                            i.range.y=c(min.y,max.y),
                             i.start=as.logical(input$preepidemicthr),
                             i.end=as.logical(input$postepidemicthr),
                             i.force.start = force.start,
@@ -3899,7 +3999,9 @@ shinyServer(function(input, output, session) {
                             i.colObservedPoints=colors.palette$colObservedPoints,
                             i.colEpidemicStart=colors.palette$colEpidemicStart,
                             i.colEpidemicStop=colors.palette$colEpidemicStop,
-                            i.colThresholds=colors.palette$colThresholds)
+                            i.colThresholds=colors.palette$colThresholds,
+                            i.yaxis.starts.at.0=as.logical(input$yaxis0)
+        )
         plot.list[[i]]<-p$plot
       }
       imgfilegif<-paste0(tempdir(),"/animated.gif")
@@ -4010,12 +4112,14 @@ shinyServer(function(input, output, session) {
                          i.n.max=as.numeric(input$nvalues),
                          i.colObservedPoints=colors.palette$colObservedPoints,
                          i.colSeasons=c(colors.palette$colObservedLines,colors.palette$colSeasons[c(3,2,3)]),
-                         i.colThresholds=colors.palette$colThresholds)
+                         i.colThresholds=colors.palette$colThresholds,
+                         i.yaxis.starts.at.0=as.logical(input$yaxis0)
+        )
         if (is.null(p)){
           zfix<-NULL
         }else{
           z <- ggplotly(p$plot, width = 800, height = 600)
-          zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+          zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
         }
       }
     }
@@ -4082,10 +4186,13 @@ shinyServer(function(input, output, session) {
                              i.n.max=as.numeric(input$nvalues),
                              i.colObservedPoints=colors.palette$colObservedPoints,
                              i.colSeasons=c(colors.palette$colObservedLines,colors.palette$colSeasons[c(3,2,3)]),
-                             i.colThresholds=colors.palette$colThresholds)
+                             i.colThresholds=colors.palette$colThresholds,
+                             i.yaxis.starts.at.0=as.logical(input$yaxis0)
+            )
             if (!is.null(p)){
               temp1<-p$gdata
-              temp2<-dcast(temp1, week ~ variable, value.var = "value", drop = FALSE, fill = NA)
+              temp2 <- temp1 %>% select(variable, week, value) %>% tidyr::spread(variable, value, drop = FALSE, fill = NA)
+              
               temp2<-temp2[order(temp2$week),p$labels]
               row.names(temp2)<-p$weeklabels
               temp2$week<-NULL
@@ -4160,10 +4267,13 @@ shinyServer(function(input, output, session) {
                              i.n.max=as.numeric(input$nvalues),
                              i.colObservedPoints=colors.palette$colObservedPoints,
                              i.colSeasons=c(colors.palette$colObservedLines,colors.palette$colSeasons[c(3,2,3)]),
-                             i.colThresholds=colors.palette$colThresholds)
+                             i.colThresholds=colors.palette$colThresholds,
+                             i.yaxis.starts.at.0=as.logical(input$yaxis0)
+            )
             if (!is.null(p)){
               temp1<-p$gdata
-              temp2<-dcast(temp1, week ~ variable, value.var = "value", drop = FALSE, fill = NA)
+              #temp2<-reshape2::dcast(temp1, week ~ variable, value.var = "value", drop = FALSE, fill = NA)
+              temp2 <- temp1 %>% select(variable, week, value) %>% tidyr::spread(variable, value, drop = FALSE, fill = NA)
               temp2<-temp2[order(temp2$week),p$labels]
               row.names(temp2)<-p$weeklabels
               temp2$week<-NULL
@@ -4293,12 +4403,14 @@ shinyServer(function(input, output, session) {
                          i.n.max=as.numeric(input$nvalues),
                          i.colObservedPoints=colors.palette$colObservedPoints,
                          i.colSeasons=colors.palette$colSeasons,
-                         i.colThresholds=colors.palette$colThresholds)
+                         i.colThresholds=colors.palette$colThresholds,
+                         i.yaxis.starts.at.0=as.logical(input$yaxis0)
+        )
         if (is.null(p)){
           zfix<-NULL
         }else{
           z <- ggplotly(p$plot, width = 800, height = 600)
-          zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+          zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
         }
       }
     }
@@ -4366,12 +4478,14 @@ shinyServer(function(input, output, session) {
                         i.colObservedLines=colors.palette$colObservedLines,
                         i.colThresholds=colors.palette$colThresholds,
                         i.colObservedPoints=colors.palette$colObservedPoints,
-                        i.colEpidemic=colors.palette$colEpidemic)
+                        i.colEpidemic=colors.palette$colEpidemic,
+                        i.yaxis.starts.at.0=as.logical(input$yaxis0)
+        )
         if (is.null(p)){
           zfix<-NULL
         }else{
           z <- ggplotly(p$plot, width = 800, height = 600)
-          zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,"week","value",p$weeklabels)
+          zfix<-fixplotly(z,p$labels,p$haslines,p$haspoints,trloc("Week"),"value",p$weeklabels)
         }
       }
     }
@@ -4409,7 +4523,8 @@ shinyServer(function(input, output, session) {
         uiOutput("uidataset"),
         uiOutput("uifirstWeek"),
         uiOutput("uilastWeek"),
-        uiOutput("uitransformation")
+        uiOutput("uitransformation"),
+        uiOutput("uiprocess")
     )
   })
   
@@ -4439,6 +4554,12 @@ shinyServer(function(input, output, session) {
       , title = trloc("Transform"), content = trloc("Select the transformation to apply to the original data"),                            placement = "right", trigger = "hover", options = list(container = "body"))
   })
   
+  output$uiprocess = renderUI({
+    popify(
+      checkboxInput("processdata", label = h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Process data")), value = TRUE)
+      , title = trloc("Process data"), content = trloc("Check this tickbox if you want to process input data, rearrange weeks acording to the first/last week selection and join seasons divided in the input dataset"), placement = "right", trigger = "hover", options = list(container = "body"))
+  })
+
   output$uiModel = renderUI({
     box(title=trloc("Model"), status = "primary", solidHeader = TRUE, width = 12,  background = "black", collapsible = TRUE, collapsed=TRUE,
         popify(
@@ -4569,7 +4690,10 @@ shinyServer(function(input, output, session) {
         , title = trloc("Seasons palette"), content = trloc("Palette used to generate the colors of the lines of the series graphs and other graphs with multiple lines"), placement = "left", trigger = "hover", options = list(container = "body")),
       popify(
         selectInput("colEpidemic", h6(trloc("Timing palette"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = c("default",rownames(brewer.pal.info),colors()), size=1, selectize = FALSE, selected = "default")
-        , title = trloc("Timing palette"), content = trloc("Palette used to generate the colors of the points of pre, epidemic and post markers in timing graphs"), placement = "left", trigger = "hover", options = list(container = "body"))
+        , title = trloc("Timing palette"), content = trloc("Palette used to generate the colors of the points of pre, epidemic and post markers in timing graphs"), placement = "left", trigger = "hover", options = list(container = "body")),
+      popify(
+        checkboxInput("yaxis0", label = h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("y-axis starts at 0")), value = TRUE)
+        , title = trloc("y-axis starts at 0"), content = trloc("Force y-axis to start at 0 for all plots"), placement = "left", trigger = "hover", options = list(container = "body"))
     )
   })
   

@@ -5,7 +5,8 @@ library("shinyBS")
 library("shinyjs")
 library("RColorBrewer")
 library("ggthemes")
-library("reshape2")
+library("tidyr")
+library("dplyr")
 library("openxlsx")
 library("readxl")
 library("stringr")
@@ -17,9 +18,15 @@ library("ggplot2")
 library("plotly")
 library("mem")
 
-languages<-memapp:::get.languages()
-languages.list<-as.list(languages$lcidstring)
-names(languages.list)<-languages$locale
+source("helpers.R")
+
+cat("preparation> begin\n")
+cat("preparation> creating translation file\n")
+build.languages()
+languages<-get.languages()
+languages.list<-as.list(languages$filename)
+names(languages.list)<-languages$lang_name
+running.versions<-get.r.versions()
 
 shinyUI(
   dashboardPage(skin = "black",
@@ -29,7 +36,7 @@ shinyUI(
                 # Tricky way of placing elements in dashboardHeader, expects a tag element of type li and class dropdown, 
                 # so we can pass such elements instead of dropdownMenus
                 dashboardHeader(title = "MEM dashboard",
-                                tags$li(paste("memapp v",packageVersion("memapp")," and mem v",packageVersion("mem"),", code under GPLv2 at",sep=""),
+                                tags$li(paste(running.versions$r,"/",running.versions$platform,", memapp ",running.versions$memapp,", mem ",running.versions$mem," - code under GPLv2 at",sep=""),
                                         class = "dropdown"),
                                 tags$li(a(href = 'https://github.com/lozalojo/',
                                           target="_blank",
@@ -110,7 +117,7 @@ shinyUI(
                              box(
                                title="", solidHeader = TRUE, status = "warning", width = 12,
                                uiOutput("uiLanguage"),
-                               selectInput("lang", label = "", choices = languages.list, size=1, selectize = FALSE, selected = "en-gb")
+                               selectInput("lang", label = "", choices = languages.list, size=1, selectize = FALSE, selected = "en_GB")
                              )
                       )
                     )
