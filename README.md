@@ -16,12 +16,18 @@ install.packages("memapp")
 To install the development version of *memapp* use the *devtools* package.
 
 ```
-# install the devtools package
-install.packages("devtools")
+if(!require("devtools")) install.packages("devtools")
+library("devtools")
 # install the memapp development version from GitHub
-devtools::install_github("lozalojo/memapp")
+install_github("lozalojo/memapp")
 ```
 When installing this version also you are intalling development versions of some sensitive packages that are used by *memapp* (including the *mem* package).
+
+See installation videos for Windows 10, Ubuntu 16.04.4 and MacOS 10.13.1 High Sierra here:
+
+```
+https://www.youtube.com/watch?v=rTIlQGM0qbE&list=PLhUpdbxODE7DizLt2TA-Hgw0cQ5ycM8BB
+```
 
 ## Usage
 
@@ -43,7 +49,7 @@ In order to use the Surveillance/Animation graph, *magick* package must be insta
 install.packages("magick")
 ```
 
-Or alternatively, for low specs machines, the *animation* package:
+Or alternatively, for low specs machines (recommended for most users), the *animation* package:
 
 ```
 install.packages("animation")
@@ -66,6 +72,19 @@ install.GraphicsMagick()
 install.ImageMagick()
 ```
 
+Most data can be exported to csv or excel files, but for the later to work you have to install Rtools. You can download and install it here:
+
+https://cran.r-project.org/bin/windows/Rtools/
+
+```
+# check if installr is installed, and install it otherwise
+if(!require("installr")) install.packages('installr')
+library("installr")
+# install Rtools
+install.Rtools()
+
+```
+
 ## Localization
 
 Starting with version 2.6, memapp enabled an option to localize the app. If your language is not listed in the Languages section and you want to see the app translated please, open the semicolon separated values file at github:
@@ -75,6 +94,40 @@ https://github.com/lozalojo/memapp/blob/master/inst/shinyapp/lang/en-GB.txt
 ```
 
 With a text editor, translate the second column to your language and send it to the maintainer.
+
+### Localization credits:
+
+@Spanish, José E. Lozano
+
+@French, Isabel Bergeri
+
+## Useful links
+
+memapp R package *official webpage*
+
+```
+https://github.com/lozalojo/memapp
+```
+
+memapp R package *CRAN webpage*
+
+```
+https://cran.r-project.org/package=memapp
+```
+
+memapp *official server*
+
+```
+www.memwebapp.com
+```
+
+## Technical manual
+
+At the following google drive, updated to v2.9
+
+```
+https://drive.google.com/file/d/0B0IUo_0NhTOoX29zc2p5RmlBUWc/view?usp=sharing
+```
 
 ## References
 

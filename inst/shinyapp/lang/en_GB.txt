@@ -122,7 +122,7 @@ Maximum seasons;Maximum seasons
 Mean end;Mean end
 Mean start;Mean start
 Median and bootstrap confidence interval;Median and bootstrap confidence interval
-Median and the KC Method to calculate its confidence interval;Median and the KC Method to calculate its confidence interval
+Median and Nyblom confidence interval;Median and Nyblom confidence interval
 Medium;Medium
 Medium int. thr.;Medium int. thr.
 Medium level;Medium level
@@ -259,3 +259,39 @@ y-axis starts at 0;y-axis starts at 0
 Force y-axis to start at 0 for all plots;Force y-axis to start at 0 for all plots
 Process data;Process data
 Check this tickbox if you want to process input data, rearrange weeks acording to the first/last week selection and join seasons divided in the input dataset;Check this tickbox if you want to process input data, rearrange weeks acording to the first/last week selection and join seasons divided in the input dataset
+Log;Log
+MAP curve;MAP curve
+Slope curve;Slope curve
+Multi waves;Multi waves
+Show experimental features;Show experimental features
+Show experimental features of memapp;Show experimental features of memapp
+No file or dataset selected;No file or dataset selected
+Centering seasons;Centering seasons
+Method for centering seasons to calculate the average curve;Method for centering seasons to calculate the average curve
+Highest mean duration-weeks period;Highest mean duration-weeks period
+Highest 1-week period (peak);Highest 1-week period (peak)
+Highest 2-weeks period;Highest 2-weeks period
+Highest 3-weeks period;Highest 3-weeks period
+Highest 4-weeks period;Highest 4-weeks period
+Highest 5-weeks period;Highest 5-weeks period
+Highest 6-weeks period;Highest 6-weeks period
+Highest 7-weeks period;Highest 7-weeks period
+Highest 8-weeks period;Highest 8-weeks period
+Highest 9-weeks period;Highest 9-weeks period
+Highest 10-weeks period;Highest 10-weeks period
+Highest 11-weeks period;Highest 11-weeks period
+Highest 12-weeks period;Highest 12-weeks period
+Highest 13-weeks period;Highest 13-weeks period
+Highest 14-weeks period;Highest 14-weeks period
+Highest 15-weeks period;Highest 15-weeks period
+Start centering period;Start centering period
+End centering period;End centering period
+Intensity thresholds;Intensity thresholds
+No. waves;No. waves
+Total number of waves of the whole dataset, set it to 0 if you want the program to autodetect it;Total number of waves of the whole dataset, set it to 0 if you want the program to autodetect it
+Separation;Separation
+Minimum separation between two seasons to be considered different;Minimum separation between two seasons to be considered different
+Transformation;Transformation
+Waves;Waves
+Select the number of waves in the original data;Select the number of waves in the original data
+One wave;One wave

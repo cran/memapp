@@ -4,11 +4,12 @@ library("shinydashboard")
 library("shinyBS")
 library("shinyjs")
 library("RColorBrewer")
-library("ggthemes")
 library("magrittr")
 library("tidyr")
 library("dplyr")
 library("openxlsx")
+library("foreign")
+library("haven")
 library("readxl")
 library("stringr")
 library("stringi")
@@ -115,10 +116,10 @@ shinyUI(
                              uiOutput("uiGraphoptions"),
                              uiOutput("uiMEMoptions"),
                              uiOutput("uiSupport"),
-                             box(
+                             shinydashboard::box(
                                title="", solidHeader = TRUE, status = "warning", width = 12,
                                uiOutput("uiLanguage"),
-                               selectInput("lang", label = "", choices = languages.list, size=1, selectize = FALSE, selected = "en_GB")
+                               selectInput("language", label = "", choices = languages.list, size=1, selectize = FALSE, selected = "en_GB")
                              )
                       )
                     )
@@ -126,4 +127,3 @@ shinyUI(
                 )
   )
 )
-
