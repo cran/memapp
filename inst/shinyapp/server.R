@@ -460,14 +460,33 @@ shinyServer(function(input, output, session) {
       axis.x.range <- range(data.x)
       temp1 <- range(i.range.x.values$week.no)
       temp2 <- mem:::optimal.tickmarks(temp1[1], temp1[2], floor(i.tickmarks/NCOL(i.data)), 1:temp1[2], T, F)
-      axis.x.ticks<-data.x[data.orig$week %in% i.range.x.values$week.lab[temp2$tickmarks]]
+      temp3 <- floor(mean(i.range.x.values$week.no))
+      # Ticks for the weeks
+      axis.x.ticks.1<-data.x[data.orig$week %in% i.range.x.values$week.lab[temp2$tickmarks]]
+      # Ticks for the seasons
+      axis.x.ticks.2<-data.x[data.orig$week %in% i.range.x.values$week.lab[temp3]]
+      # Labels for the week-ticks
       axis.x.labels1<-data.orig$week[data.orig$week %in% i.range.x.values$week.lab[temp2$tickmarks]]
-      axis.x.labels2<-data.orig$season[data.orig$week %in% i.range.x.values$week.lab[temp2$tickmarks]]
-      axis.x.labels2[axis.x.labels1!=i.range.x.values$week.lab[temp2$tickmarks][floor(temp2$number/2+1)]]<-""
-      axis.x.labels<-paste(axis.x.labels1,axis.x.labels2,sep="\n")
+      # Labels for the season-ticks
+      axis.x.labels2<-data.orig$season[data.orig$week %in% i.range.x.values$week.lab[temp3]]
+      # I join both type of ticks, maybe they are in the same position
+      axis.x.ticks <- sort(unique(c(axis.x.ticks.1,axis.x.ticks.2)))
+      # Part of the final label of the week
+      temp4 <- rep("", length(axis.x.ticks))
+      temp4[axis.x.ticks %in% axis.x.ticks.1]<-axis.x.labels1
+      # Part of the final label of the year
+      temp5 <- rep("", length(axis.x.ticks))
+      temp5[axis.x.ticks %in% axis.x.ticks.2]<-axis.x.labels2
+      # And paste both parts
+      axis.x.labels <- paste(temp4, temp5, sep="\n")
+      # axis.x.labels2<-data.orig$season[data.orig$week %in% i.range.x.values$week.lab[temp2$tickmarks]]
+      # axis.x.labels2[axis.x.labels1!=i.range.x.values$week.lab[temp2$tickmarks][floor(temp2$number/2+1)]]<-""
+      # axis.x.labels<-paste(axis.x.labels1,axis.x.labels2,sep="\n")
       if (i.replace.x.cr) axis.x.labels<-gsub("/","\n",axis.x.labels)
-      rm("temp1","temp2")
-      
+      # This is not to print a tickmark when there is only a season label, tickmarks are only for weeks
+      axis.x.tickmarks <- rep(NA, length(axis.x.ticks))
+      axis.x.tickmarks[axis.x.ticks %in% axis.x.ticks.1]<-"black"
+      rm("temp1", "temp2", "temp3", "temp4", "temp5")
       # Range y fix
       if (length(i.range.y)!=2){
         if (i.yaxis.starts.at.0){
@@ -481,7 +500,6 @@ shinyServer(function(input, output, session) {
       axis.y.range <- axis.y.otick$range+diff(range(axis.y.otick$range))*0.025*c(-1, 1)
       axis.y.ticks <- axis.y.otick$tickmarks
       axis.y.labels <- axis.y.otick$tickmarks
-      
       gplot<-ggplot(dgrafgg.s) +
         geom_line(aes(x=week,y=value,group=variable, color=variable, linetype=variable),size=0.5) +
         geom_point(aes(x=week,y=value,group=variable, color=variable, size=variable, fill=variable, shape=variable), color="#ffffff", stroke = 0.1) +
@@ -494,7 +512,7 @@ shinyServer(function(input, output, session) {
         scale_y_continuous(breaks=axis.y.ticks, limits = axis.y.range, labels = axis.y.labels) +
         labs(title = i.textMain, x = i.textX, y = i.textY) +
         theme_light() +
-        theme(plot.title = element_text(hjust = 0.5))
+        theme(plot.title = element_text(hjust = 0.5), axis.ticks.x = element_line(color = axis.x.tickmarks))
       p<-list(plot=gplot,labels=labels.s,haspoints=haspoints.s,haslines=haslines.s,
               weeklabels=paste(data.orig$week,paste0("<br />",trloc("Season"),": "),data.orig$season,sep=""), gdata=dgrafgg.s)
     }
@@ -1117,7 +1135,7 @@ shinyServer(function(input, output, session) {
       
       if (length(selectedcolumns)<2){
         temp1 <- memmodel(cbind(datfile[selectedcolumns],datfile[selectedcolumns]),
-                          i.seasons=as.numeric(input$SelectMaximum),
+                          i.seasons=NA,
                           i.type.threshold=as.numeric(input$typethreshold),
                           i.tails.threshold=as.numeric(input$ntails),
                           i.type.intensity=as.numeric(input$typeintensity),
@@ -1395,14 +1413,14 @@ shinyServer(function(input, output, session) {
       datalog <- paste0(datalog, "No file\n")
       cat("reactive/read_data> Warning: No file\n")
     }else if(is.null(indataset)){
-      temp1<-read.data(i.file=infile$datapath, i.file.name=inname, i.process.data=as.logical(input$processdata))
+      temp1<-read.data(i.file=infile$datapath, i.file.name=inname, i.range.x=i.range.x, i.process.data=as.logical(input$processdata))
       datasets=temp1$datasets
       datasetread=temp1$datasetread
       rm("temp1")
       datalog <- paste0(datalog, "No dataset\n")
       cat("reactive/read_data> Warning: No dataset\n")
     }else if (indataset==""){
-      temp1<-read.data(i.file=infile$datapath, i.file.name=inname, i.process.data=as.logical(input$processdata))
+      temp1<-read.data(i.file=infile$datapath, i.file.name=inname, i.range.x=i.range.x, i.process.data=as.logical(input$processdata))
       datasets=temp1$datasets
       datasetread=temp1$datasetread
       rm("temp1")
@@ -1412,7 +1430,7 @@ shinyServer(function(input, output, session) {
       datalog <- paste0(datalog, "Note: reading original data\n")
       cat("reactive/read_data> Note: reading original data\n")
       temp1<-read.data(i.file=infile$datapath, i.file.name=inname, i.dataset = indataset, i.range.x=i.range.x, i.process.data=as.logical(input$processdata))
-      temp2<-read.data(i.file=infile$datapath, i.file.name=inname, i.dataset = indataset, i.process.data=as.logical(input$processdata))
+      temp2<-read.data(i.file=infile$datapath, i.file.name=inname, i.dataset = indataset, i.range.x=i.range.x, i.process.data=as.logical(input$processdata))
       datasets=temp1$datasets
       datasetread=temp1$datasetread
       datalog <- paste0(datalog, temp1$datalog)
@@ -1428,7 +1446,7 @@ shinyServer(function(input, output, session) {
         zerocols <- apply(datasetread, 2, function(x) sum(x,na.rm=T)==0)
         if (any(zerocols)){
           datalog <- paste0(datalog, "Note: removing zero data columns from the original file after rearrangement: ",paste0(names(datasetread)[zerocols], collapse="; "),"\n")
-          cat("read_data> Note: removing zero data columns from the original file after rearrangement:",paste0(names(datasetread)[zerocols], collapse=";"),"\n")
+          cat("reactive/read_data> Note: removing zero data columns from the original file after rearrangement:",paste0(names(datasetread)[zerocols], collapse=";"),"\n")
           datasetread<-datasetread[!zerocols]        
         }
         # Transformation
@@ -1586,6 +1604,24 @@ shinyServer(function(input, output, session) {
     }
     cat("observeEvent/language> current locale:",Sys.getlocale(),"\n")
     cat("observeEvent/language> end\n")
+  })
+  
+  observeEvent(input$dataset, {
+    lang<-input$language
+    cat("observeEvent/dataset> begin\n")
+    cat("observeEvent/dataset> setting to default values\n")
+    updateCheckboxInput(session, "processdata", value = TRUE)
+    updateSelectInput(session, "transformation", selected = 1)
+    if (input$transformation == 5 & input$advanced) updatesliderInput(session, "loesspan", value = 0.15)
+    updateSelectInput(session, "waves", selected = 1)
+    if ((input$waves == 2 | input$waves == 3) & input$advanced) updateSliderInput(session, "twowavesproportion", value = 0)
+    if (input$waves == 4 & input$experimental & input$advanced){
+      updateNumericInput(session, "numberwaves", value = 0)
+      updateNumericInput(session, "wavesseparation", value = 1)
+      updateNumericInput(session, "wavesparam1", value = 3)
+      updateNumericInput(session, "wavesparam2", value = 2)
+    }
+    cat("observeEvent/dataset> end\n")
   })
   
   observeEvent(read_data(), {
@@ -2228,11 +2264,11 @@ shinyServer(function(input, output, session) {
             # it adds a ` at the begining and end, thus avoiding to detect the value from values$origdata, which
             # have normal names (without ``), so I have to change the yvar value
             np.y<-gsub("`","",input[[nameid]]$mapping$y)
-            np.max <- max(values$origdata[np.y], na.rm=T)/10
+            np.max <- max(values$origdata[np.y], na.rm=T)/2
             np <- nearPoints(values$origdata, input[[nameid]], 
                              xvar=np.x,
                              yvar=np.y,
-                             maxpoints=1 , 
+                             maxpoints=1, 
                              threshold = np.max)
             if (NROW(np)>0) values$clickdata<-rbind(values$clickdata,cbind(data.frame(season=as.character(s), stringsAsFactors = F), np))
             if (NROW(values$clickdata)>0){
@@ -4164,7 +4200,7 @@ shinyServer(function(input, output, session) {
             for (j in 1:n.values){
               i.param.deteccion<-i.param.values[j]
               i.param.deteccion.label<-format(round(i.param.deteccion,1),digits=3,nsmall=1)
-              i.timing.2<-mem:::calcular.optimo(curva.map,2,i.param.deteccion)[4:5]
+              i.timing.2<-mem:::calcular.optimo(curva.map,2,i.param.deteccion)$resultados[4:5]
               resultado.j<-mem:::calcular.indicadores.2.timings(cur,i.timing.1.i,
                                                                 i.timing.2,
                                                                 i.timing.labels=c("inspection",i.param.deteccion.label),
@@ -4300,7 +4336,7 @@ shinyServer(function(input, output, session) {
               curva.map<-mem:::calcular.map(as.vector(as.matrix(cur)))
               i.param.deteccion<-optimum$matthews
               i.param.deteccion.label<-format(round(i.param.deteccion,1),digits=3,nsmall=1)
-              i.timing.2<-mem:::calcular.optimo(curva.map,2,i.param.deteccion)[4:5]
+              i.timing.2<-mem:::calcular.optimo(curva.map,2,i.param.deteccion)$resultados[4:5]
               dummmmyyyy<-mem:::calcular.indicadores.2.timings(cur, i.timing.1.i, i.timing.2,
                                                                i.timing.labels=c("inspection",i.param.deteccion.label),
                                                                i.output=i.output,
@@ -5362,24 +5398,24 @@ shinyServer(function(input, output, session) {
                        fluidRow(
                          column(6,
                                 popify(
-                                  numericInput("numberwaves", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("No. waves")), 0, step=1)
+                                  numericInput("numberwaves", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("No. waves")), value = 0, min = 0, max = NA, step=1)
                                   , title = trloc("No. waves"), content = trloc("Total number of waves of the whole dataset, set it to 0 if you want the program to autodetect it"), placement = "right", trigger = 'focus', options = list(container = "body"))
                          ),
                          column(6,
                                 popify(
-                                  numericInput("wavesseparation", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Separation")), 1, step=1)
+                                  numericInput("wavesseparation", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Separation")), value = 1, min = 0, max = NA, step=1)
                                   , title = trloc("Separation"), content = trloc("Minimum separation between two seasons to be considered different"), placement = "right", trigger = 'focus', options = list(container = "body"))
                          )
                        ),
                        fluidRow(
                          column(6,
                                 popify(
-                                  numericInput("wavesparam1", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Param 1")), 3, step=0.1)
+                                  numericInput("wavesparam1", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Param 1")), value = 3, min = 0.5, max = 10, step=0.1)
                                   , title = trloc("Param 1"), content = trloc("Multiple waves algorith parameter 1"), placement = "right", trigger = 'focus', options = list(container = "body"))
                          ),
                          column(6,
                                 popify(
-                                  numericInput("wavesparam2", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Param 2")), 2, step=0.1)
+                                  numericInput("wavesparam2", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Param 2")), value = 2, min = 0.5, max = 10, step=0.1)
                                   , title = trloc("Param 2"), content = trloc("Multiple waves algorith parameter 2"), placement = "right", trigger = 'focus', options = list(container = "body"))
                          )
                        )
@@ -5405,7 +5441,7 @@ shinyServer(function(input, output, session) {
                           selectInput('SelectExclude', h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Exclude")), multiple = TRUE, choices = getSeasons(), selected=NULL)
                           , title = trloc("Exclude"), content = trloc("Select any number of seasons to be excluded from the model"), placement = "right", trigger = 'focus', options = list(container = "body")),
                         popify(
-                          numericInput("SelectMaximum", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Maximum seasons")), 10, step=1)
+                          numericInput("SelectMaximum", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Maximum seasons")), 10, min = 2, max = NA, step=1)
                           , title = trloc("Maximum seasons"), content = trloc("Maximum number of seasons to be used in the model.<br>Note that this will probably override the rest options, since it will restrict data to the last number of seasons from the selection already made with From/To/Exclude.<br>For influenza it is not recommended to use more than 10 seasons"), placement = "right", trigger = 'focus', options = list(container = "body"))
     )
   })
@@ -5555,7 +5591,7 @@ shinyServer(function(input, output, session) {
       ),
       conditionalPanel(condition = "input.method == 2",
                        popify(
-                         numericInput("param", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Slope parameter")), 2.8, step=0.1)
+                         numericInput("param", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Slope parameter")), 2.8, min = 0.5, max = 10, step=0.1)
                          , title = trloc("Slope parameter"), content = trloc("Slope parameter used in fixed criterium method"), placement = "left", trigger = 'focus', options = list(container = "body"))
       ),
       h4(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Thresholds")),
@@ -5567,7 +5603,7 @@ shinyServer(function(input, output, session) {
         ),
         column(6,
                popify(
-                 numericInput("ntails", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Tails")), 1, step=1, min = 1, max = 2)
+                 numericInput("ntails", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Tails")), 1, min = 1, max = 2, step=1)
                  , title = trloc("Tails"), content = trloc("Choose if you want to use one-tailed or two-tailed confidence intervals for thresholds"), placement = "left", trigger = 'focus', options = list(container = "body"))
         )
       ),
@@ -5580,17 +5616,17 @@ shinyServer(function(input, output, session) {
       fluidRow(
         column(4,
                popify(
-                 numericInput("levelintensitym", h6(trloc("Medium lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 40, step=0.5, min = 0.5, max = 99.5)
+                 numericInput("levelintensitym", h6(trloc("Medium lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 40, min = 0.5, max = 99.5, step=0.5)
                  , title = trloc("Medium lvl"), content = trloc("Level of the confidence interval used to calculate the medium threshold"), placement = "left", trigger = 'focus', options = list(container = "body"))
         ),
         column(4,
                popify(
-                 numericInput("levelintensityh", h6(trloc("High lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 90, step=0.5, min = 0.5, max = 99.5)
+                 numericInput("levelintensityh", h6(trloc("High lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 90, min = 0.5, max = 99.5, step=0.5)
                  , title = trloc("High lvl"), content = trloc("Level of the confidence interval used to calculate the high threshold"), placement = "left", trigger = 'focus', options = list(container = "body"))
         ),
         column(4,
                popify(
-                 numericInput("levelintensityv", h6(trloc("Very high lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 97.5, step=0.5, min = 0.5, max = 99.5)
+                 numericInput("levelintensityv", h6(trloc("Very high lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 97.5, min = 0.5, max = 99.5, step=0.5)
                  , title = trloc("Very high lvl"), content = trloc("Level of the confidence interval used to calculate the very high threshold"), placement = "left", trigger = 'focus', options = list(container = "body"))
         )
       ),
@@ -5619,7 +5655,7 @@ shinyServer(function(input, output, session) {
         selectInput("typeother", h6(trloc("Other CI."), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = type.list, size=1, selectize = FALSE, selected = 3)
         , title = trloc("Other CI."), content = trloc("Method for calculating other confidence intervals: duration, epidemic percentage, epidemic start, etc."), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        numericInput("levelaveragecurve", h6(trloc("Average curve/Other CI. level"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 95.0, step=0.5, min = 0.5, max = 99.5)
+        numericInput("levelaveragecurve", h6(trloc("Average curve/Other CI. level"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 95.0, min = 0.5, max = 99.5, step=0.5)
         , title = trloc("Average curve/Other CI. level"), content = trloc("Level of the confidence interval used to calculate the average curve and other intervals"), placement = "left", trigger = 'focus', options = list(container = "body")),
       conditionalPanel(condition = "input.advanced",
                        popify(
