@@ -18,6 +18,51 @@ shinyServer(function(input, output, session) {
   values <- reactiveValues(origdata = NULL, plotdata = NULL, clickdata=NULL, idscreated = NULL, 
                            optimizegraphs = NULL, locale=Sys.getlocale())
   
+  default.values<-list(
+    textMain="Main title",
+    textY="Y-axis",
+    textX="X-axis",
+    colObservedLines="default",
+    colObservedPoints="default",
+    colEpidemicStart="default",
+    colEpidemicStop="default",
+    colThresholds="default",
+    colLevels="default",
+    colSeasons="default",
+    colEpidemic="default",
+    yaxis0 = TRUE,
+    method = 2,
+    param=list(value = 2.8, min = 0.5, max = 10, step=0.1),
+    nvalues = -1,
+    ntails=list(value = 1, min = 1, max = 2, step=1),
+    typethreshold = 5,
+    typeintensity = 6,
+    levelintensitym=list(value = 40, min = 0.5, max = 99.5, step=0.5),
+    levelintensityh=list(value = 90, min = 0.5, max = 99.5, step=0.5),
+    levelintensityv=list(value = 97.5, min = 0.5, max = 99.5, step=0.5),
+    validation = "cross",
+    optimmethod = "matthews",
+    paramrange=list(value = c(1, 5), min = 0.1, max = 10, step=0.1),
+    typecurve = 2,
+    typeother = 3,
+    levelaveragecurve=list(value = 95.0, min = 0.5, max = 99.5, step=0.5),
+    centering = -1,
+    advanced = FALSE,
+    showexperimental = FALSE,
+    experimental = FALSE,
+    processdata = TRUE,
+    transformation = 1,
+    loesspan = list(min = 0.05, max = 1, value = 0.50, step=0.05),
+    waves = 1,
+    twowavesproportion = list(min = 0, max = 100, value = 15, step=5),
+    numberwaves = list(value = 0, min = 0, max = NA, step=1),
+    wavesseparation = list(value = 1, min = 0, max = NA, step=1),
+    wavesparam1 = list(value = 3, min = 0.5, max = 10, step=0.1),
+    wavesparam2 = list(value = 2, min = 0.5, max = 10, step=0.1),
+    smregressionoptimum = TRUE,
+    smregressionsmoothing = list(min = 0.1, max = 5, value = 1, step=0.1)
+  )
+  
   #####################################
   ### SERVER-SIDE FUNCTIONS
   #####################################
@@ -1450,14 +1495,19 @@ shinyServer(function(input, output, session) {
           datasetread<-datasetread[!zerocols]        
         }
         # Transformation
-        if (as.numeric(input$transformation) %in% c(2:4)){
+        if (as.numeric(input$transformation) %in% c(2:3)){
           datalog <- paste0(datalog, "Note: applying selected transformation\n")
           cat("reactive/read_data> Note: applying selected transformation\n")
           datasetread <- transformseries(datasetread, i.transformation=as.numeric(input$transformation))
+        }else if (as.numeric(input$transformation)==4){
+          datalog <- paste0(datalog, "Note: applying selected transformation\n")
+          cat("reactive/read_data> Note: applying selected transformation\n")
+          if (input$smregressionoptimum) hsuav.value <- -1 else hsuav.value <- as.numeric(input$smregressionsmoothing)
+          datasetread <- transformseries(datasetread, i.transformation=4, hsuav=hsuav.value)
         }else if (as.numeric(input$transformation)==5){
           datalog <- paste0(datalog, "Note: applying selected transformation\n")
           cat("reactive/read_data> Note: applying selected transformation\n")
-          datasetread <- transformseries(datasetread, i.transformation=7, i.span=as.numeric(input$loesspan))
+          datasetread <- transformseries(datasetread, i.transformation=7, span=as.numeric(input$loesspan))
         }else{
           datalog <- paste0(datalog, "Note: no transformation selected\n")
           cat("reactive/read_data> Note: no transformation selected\n")          
@@ -1474,15 +1524,21 @@ shinyServer(function(input, output, session) {
         }else if (as.numeric(input$waves)==4){
           datalog <- paste0(datalog, "Note: separating waves\n")
           cat("reactive/read_data> Note: separating waves\n")
-          #print(names(datasetread))
-          # cat(paste(as.numeric(input$numberwaves),as.numeric(input$wavesseparation),
-          #     as.numeric(input$wavesparam1), as.numeric(input$wavesparam2),sep="-"),"\n")
+          # If I use the i.method and i.param parameters when I produce the graph of multiple 
+          # waves, it modifies this the graph I use (that shows the epidemic period as shown
+          # by the algorithm) and then consequently read_data changes and reset the information
+          # shown at Model. So if I use multiple and change the i.param then it is reset the 
+          # Model selection, which I do not want it to happen.
+          # temp1 <- mem:::transformseries.multiple(datasetread, i.waves=as.numeric(input$numberwaves), 
+          #                                         i.min.separation=as.numeric(input$wavesseparation),
+          #                                         i.param.1=as.numeric(input$wavesparam1), 
+          #                                         i.param.2=as.numeric(input$wavesparam2),
+          #                                         i.method=as.numeric(input$method),
+          #                                         i.param=as.numeric(input$param))
           temp1 <- mem:::transformseries.multiple(datasetread, i.waves=as.numeric(input$numberwaves), 
                                                   i.min.separation=as.numeric(input$wavesseparation),
-                                                  i.param.1=as.numeric(input$wavesparam1), i.param.2=as.numeric(input$wavesparam2),
-                                                  i.method=as.numeric(input$method),
-                                                  i.param=as.numeric(input$param))
-          #print(names(temp1))
+                                                  i.param.1=as.numeric(input$wavesparam1), 
+                                                  i.param.2=as.numeric(input$wavesparam2))
           datalog <- paste0(datalog, "Note: Description of dummy seasons created\n\t", trloc("Season"), "\t", trloc("From"), "\t", trloc("To"), "\n", paste0(apply(temp1$season.desc, 1, function(x) paste0("\t", paste0(as.character(x), collapse="\t"))), collapse="\n"))
           datasetread <- temp1$data.final
           plots <- temp1$plots
@@ -1607,20 +1663,53 @@ shinyServer(function(input, output, session) {
   })
   
   observeEvent(input$dataset, {
-    lang<-input$language
+    lang <- input$language
     cat("observeEvent/dataset> begin\n")
     cat("observeEvent/dataset> setting to default values\n")
-    updateCheckboxInput(session, "processdata", value = TRUE)
-    updateSelectInput(session, "transformation", selected = 1)
-    if (input$transformation == 5 & input$advanced) updatesliderInput(session, "loesspan", value = 0.15)
-    updateSelectInput(session, "waves", selected = 1)
-    if ((input$waves == 2 | input$waves == 3) & input$advanced) updateSliderInput(session, "twowavesproportion", value = 0)
+    updateCheckboxInput(session, "processdata", value = default.values$processdata)
+    updateSelectInput(session, "transformation", selected = default.values$transformation)
+    if (input$transformation == 5 & input$advanced) updateSliderInput(session, "loesspan", value = default.values$loesspan$value, min = default.values$loesspan$min, max = default.values$loesspan$max, step = default.values$loesspan$step)
+    if (input$transformation == 4 & input$advanced) updateCheckboxInput(session, "smregressionoptimum", value = default.values$smregressionoptimum)
+    if (input$transformation == 4 & input$advanced) updateSliderInput(session, "smregressionsmoothing", value = default.values$smregressionsmoothing$value, min = default.values$smregressionsmoothing$min, max = default.values$smregressionsmoothing$max, step = default.values$smregressionsmoothing$step)
+    updateSelectInput(session, "waves", selected = default.values$waves)
+    if ((input$waves == 2 | input$waves == 3) & input$advanced) updateSliderInput(session, "twowavesproportion", min = default.values$twowavesproportion$min, max = default.values$twowavesproportion$max, step = default.values$twowavesproportion$step, value = default.values$twowavesproportion$value)
     if (input$waves == 4 & input$experimental & input$advanced){
-      updateNumericInput(session, "numberwaves", value = 0)
-      updateNumericInput(session, "wavesseparation", value = 1)
-      updateNumericInput(session, "wavesparam1", value = 3)
-      updateNumericInput(session, "wavesparam2", value = 2)
+      updateNumericInput(session, "numberwaves", min = default.values$numberwaves$min, max = default.values$numberwaves$max, step = default.values$numberwaves$step, value = default.values$numberwaves$value)
+      updateNumericInput(session, "wavesseparation", min = default.values$wavesseparation$min, max = default.values$wavesseparation$max, step = default.values$wavesseparation$step, value = default.values$wavesseparation$value)
+      updateNumericInput(session, "wavesparam1", min = default.values$wavesparam1$min, max = default.values$wavesparam1$max, step = default.values$wavesparam1$step, value = default.values$wavesparam1$value)
+      updateNumericInput(session, "wavesparam2", min = default.values$wavesparam2$min, max = default.values$wavesparam2$max, step = default.values$wavesparam2$step, value = default.values$wavesparam2$value)
     }
+    # Text options
+    updateTextInput(session, "textMain", value = trloc(default.values$textMain))
+    updateTextInput(session, "textY", value = trloc(default.values$textY))
+    updateTextInput(session, "textX", value = trloc(default.values$textX))
+    # Graph options
+    updateSelectInput(session, "colObservedLines", selected=default.values$colObservedLines)
+    updateSelectInput(session, "colObservedPoints", selected=default.values$colObservedPoints)
+    updateSelectInput(session, "colEpidemicStart", selected=default.values$colEpidemicStart)
+    updateSelectInput(session, "colEpidemicStop", selected=default.values$colEpidemicStop)
+    updateSelectInput(session, "colThresholds", selected=default.values$colThresholds)
+    updateSelectInput(session, "colLevels", selected=default.values$colLevels)
+    updateSelectInput(session, "colSeasons", selected=default.values$colSeasons)
+    updateSelectInput(session, "colEpidemic", selected = default.values$colEpidemic)
+    updateCheckboxInput(session, "yaxis0", value = default.values$yaxis0)
+    # MEM options
+    updateSelectInput(session, "method", selected = default.values$method)
+    updateNumericInput(session, "param", value = default.values$param$value, min = default.values$param$min, max = default.values$param$max, step=default.values$param$step)
+    updateSelectInput(session, "nvalues", selected = default.values$nvalues)
+    updateNumericInput(session, "ntails", value = default.values$ntails$value, min = default.values$ntails$min, max = default.values$ntails$max, step=default.values$ntails$step)
+    updateSelectInput(session, "typethreshold", selected = default.values$typethreshold)
+    updateSelectInput(session, "typeintensity", selected = default.values$typeintensity)
+    updateNumericInput(session, "levelintensitym", value = default.values$levelintensitym$value, min = default.values$levelintensitym$min, max = default.values$levelintensitym$max, step=default.values$levelintensitym$step)
+    updateNumericInput(session, "levelintensityh",  value = default.values$levelintensityh$value, min = default.values$levelintensityh$min, max = default.values$levelintensityh$max, step=default.values$levelintensityh$step)
+    updateNumericInput(session, "levelintensityv",  value = default.values$levelintensityv$value, min = default.values$levelintensityv$min, max = default.values$levelintensityv$max, step=default.values$levelintensityv$step)
+    updateSelectInput(session, "validation", selected = default.values$validation)
+    updateSelectInput(session, "optimmethod", selected = default.values$optimmethod)
+    updateSliderInput(session, "paramrange", value = default.values$paramrange$value, min = default.values$paramrange$min, max = default.values$paramrange$max, step=default.values$paramrange$step)
+    updateSelectInput(session, "typecurve", selected = default.values$typecurve)
+    updateSelectInput(session, "typeother", selected = default.values$typeother)
+    updateNumericInput(session, "levelaveragecurve", value = default.values$levelaveragecurve$value, min = default.values$levelaveragecurve$min, max = default.values$levelaveragecurve$max, step=default.values$levelaveragecurve$step)
+    updateSelectInput(session, "centering", selected =  default.values$centering)
     cat("observeEvent/dataset> end\n")
   })
   
@@ -2297,6 +2386,52 @@ shinyServer(function(input, output, session) {
     cat("observeEvent/data_model> end\n")
   })
   
+  observeEvent(input$resetuiTextoptions, {
+    cat("observeEvent/resetuiTextoptions> begin\n")
+    cat("observeEvent/resetuiTextoptions> reseting text options to default\n")
+    updateTextInput(session, "textMain", value = trloc(default.values$textMain))
+    updateTextInput(session, "textY", value = trloc(default.values$textY))
+    updateTextInput(session, "textX", value = trloc(default.values$textX))
+    cat("observeEvent/resetuiTextoptions> end\n")
+  })
+  
+  observeEvent(input$resetuiGraphoptions, {
+    cat("observeEvent/resetuiGraphoptions> begin\n")
+    cat("observeEvent/resetuiGraphoptionss> reseting graph options to default\n")
+    updateSelectInput(session, "colObservedLines", selected=default.values$colObservedLines)
+    updateSelectInput(session, "colObservedPoints", selected=default.values$colObservedPoints)
+    updateSelectInput(session, "colEpidemicStart", selected=default.values$colEpidemicStart)
+    updateSelectInput(session, "colEpidemicStop", selected=default.values$colEpidemicStop)
+    updateSelectInput(session, "colThresholds", selected=default.values$colThresholds)
+    updateSelectInput(session, "colLevels", selected=default.values$colLevels)
+    updateSelectInput(session, "colSeasons", selected=default.values$colSeasons)
+    updateSelectInput(session, "colEpidemic", selected = default.values$colEpidemic)
+    updateCheckboxInput(session, "yaxis0", value = default.values$yaxis0)
+    cat("observeEvent/resetuiGraphoptions> end\n")
+  })
+  
+  observeEvent(input$resetuiMEMoptions, {
+    cat("observeEvent/resetuiMEMoptions> begin\n")
+    cat("observeEvent/resetuiMEMoptions> reseting MEM options to default\n")
+    updateSelectInput(session, "method", selected = default.values$method)
+    updateNumericInput(session, "param", value = default.values$param$value, min = default.values$param$min, max = default.values$param$max, step=default.values$param$step)
+    updateSelectInput(session, "nvalues", selected = default.values$nvalues)
+    updateNumericInput(session, "ntails", value = default.values$ntails$value, min = default.values$ntails$min, max = default.values$ntails$max, step=default.values$ntails$step)
+    updateSelectInput(session, "typethreshold", selected = default.values$typethreshold)
+    updateSelectInput(session, "typeintensity", selected = default.values$typeintensity)
+    updateNumericInput(session, "levelintensitym", value = default.values$levelintensitym$value, min = default.values$levelintensitym$min, max = default.values$levelintensitym$max, step=default.values$levelintensitym$step)
+    updateNumericInput(session, "levelintensityh",  value = default.values$levelintensityh$value, min = default.values$levelintensityh$min, max = default.values$levelintensityh$max, step=default.values$levelintensityh$step)
+    updateNumericInput(session, "levelintensityv",  value = default.values$levelintensityv$value, min = default.values$levelintensityv$min, max = default.values$levelintensityv$max, step=default.values$levelintensityv$step)
+    updateSelectInput(session, "validation", selected = default.values$validation)
+    updateSelectInput(session, "optimmethod", selected = default.values$optimmethod)
+    updateSliderInput(session, "paramrange", value = default.values$paramrange$value, min = default.values$paramrange$min, max = default.values$paramrange$max, step=default.values$paramrange$step)
+    updateSelectInput(session, "typecurve", selected = default.values$typecurve)
+    updateSelectInput(session, "typeother", selected = default.values$typeother)
+    updateNumericInput(session, "levelaveragecurve", value = default.values$levelaveragecurve$value, min = default.values$levelaveragecurve$min, max = default.values$levelaveragecurve$max, step=default.values$levelaveragecurve$step)
+    updateSelectInput(session, "centering", selected =  default.values$centering)
+    cat("observeEvent/resetuiMEMoptions> end\n")
+  })
+
   #####################################
   ### DEFINING TABS STRUCTURE
   #####################################
@@ -2365,40 +2500,11 @@ shinyServer(function(input, output, session) {
     }
   })
   
-  # output$tbdFile <- renderPrint({
-  #   infile <- input$file
-  #   indataset <- input$dataset
-  #   readdata <- read_data()
-  #   datfile <- readdata$datasetread
-  #   if(is.null(datfile)){
-  #     cat(trloc("No file or dataset selected"),"\n", sep="")
-  #     cat(trloc("Log"),":\n\t", sep="")
-  #     cat(gsub("\n","\n\t",readdata$datalog, fixed=T), sep="")
-  #   }else{
-  #     cat(trloc("File"),":\n\t",infile$name,"\n", sep="")
-  #     cat(trloc("Dataset"),":\n\t",indataset,"\n", sep="")
-  #     cat(trloc("Log"),":\n\t", sep="")
-  #     cat(gsub("\n","\n\t",readdata$datalog, fixed=T), sep="")
-  #   }
-  # })
-  
   output$tbdFile <- renderUI({
     if (as.numeric(input$waves)==4){
       fluidPage(
         verbatimTextOutput("tbdFileTxt"),
         plotOutput("tbdFilePlot")
-        # fluidRow(
-        #   column(1,h4(trloc("Timing"), tags$style(type = "text/css", "#q1 {font-weight: bold;float:right;}"))),
-        #   column(11,plotlyOutput(paste0("tbdTiming_",as.character(s),"_plot"), height = 600))
-        # ),
-        # fluidRow(
-        #   column(1,h4(trloc("MAP curve"), tags$style(type = "text/css", "#q1 {font-weight: bold;float:right;}"))),
-        #   column(11,plotlyOutput(paste0("tbdTiming_",as.character(s),"_map"), height = 600))
-        # ),
-        # fluidRow(
-        #   column(1,h4(trloc("Slope curve"), tags$style(type = "text/css", "#q1 {font-weight: bold;float:right;}"))),
-        #   column(11,plotlyOutput(paste0("tbdTiming_",as.character(s),"_slope"), height = 600))
-        # )
       )            
     }else{
       verbatimTextOutput("tbdFileTxt")
@@ -2428,7 +2534,7 @@ shinyServer(function(input, output, session) {
     if(is.null(plots)){
       NULL
     }else{
-      plots$p4[[2]]
+      plots$p4[[1]]
     }
   }, width = 800, height = 600)
   
@@ -2871,7 +2977,7 @@ shinyServer(function(input, output, session) {
       datashow<-formattable::formattable(temp1, apply(temp1, 2,
                                                       function(noxneeded) formattable::formatter("span",
                                                                                                  style = x ~ formattable::style(color = ifelse(x, "green", "red")),
-                                                                                                 x ~ formattable::icontext(ifelse(x, "ok", "remove"), ifelse(x, "Yes", "No"))))
+                                                                                                 x ~ formattable::icontext(ifelse(x, "ok", "remove"), ifelse(x, trloc("Yes"), trloc("No")))))
       )
     }
     datashow
@@ -3143,7 +3249,7 @@ shinyServer(function(input, output, session) {
       datashow<-formattable::formattable(temp1, apply(temp1, 2,
                                                       function(noxneeded) formattable::formatter("span",
                                                                                                  style = x ~ formattable::style(color = ifelse(x, "green", "red")),
-                                                                                                 x ~ formattable::icontext(ifelse(x, "ok", "remove"), ifelse(x, "Yes", "No"))))
+                                                                                                 x ~ formattable::icontext(ifelse(x, "ok", "remove"), ifelse(x, trloc("Yes"), trloc("No")))))
       )
     }
     datashow
@@ -3736,9 +3842,9 @@ shinyServer(function(input, output, session) {
         zfix<-NULL
       }else{
         p0<- p$plot +
-          geom_point(x=datamodel$mean.start, y=datfile.plot[datamodel$mean.start,"Average curve"],
+          geom_point(x=datamodel$mean.start, y=datfile.plot[datamodel$mean.start,trloc("Average curve")],
                      color=colors.palette$colEpidemicStart, size=2, fill=colors.palette$colEpidemicStart, shape=21) +
-          geom_point(x=datamodel$mean.start+datamodel$mean.length-1, y=datfile.plot[datamodel$mean.start+datamodel$mean.length-1,"Average curve"],
+          geom_point(x=datamodel$mean.start+datamodel$mean.length-1, y=datfile.plot[datamodel$mean.start+datamodel$mean.length-1,trloc("Average curve")],
                      color=colors.palette$colEpidemicStop, size=2, fill=colors.palette$colEpidemicStop, shape=21) +
           geom_vline(xintercept = datamodel$centered.start-0.5,
                      col=colors.palette$colEpidemicStart, linetype="longdash", size=0.5) +
@@ -5365,12 +5471,26 @@ shinyServer(function(input, output, session) {
     names(transformation.list)<-trloc(c("No transformation", "Odd", "Fill missings", "Smoothing regression", "Loess"))
     fluidRow(
       popify(
-        selectInput("transformation", h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Transformation")), size=1, selectize = FALSE, choices = transformation.list, selected = 1)
-        , title = trloc("Transformation"), content = trloc("Select the transformation to apply to the original data"),                            placement = "right", trigger = 'focus', options = list(container = "body")),
+        selectInput("transformation", h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Transformation")), size=1, selectize = FALSE, choices = transformation.list, selected = default.values$transformation)
+        , title = trloc("Transformation"), content = trloc("Select the transformation to apply to the original data"),                            placement = "right", trigger = 'focus', options = list(container = "body")
+      ),
       conditionalPanel(condition = "input.transformation == 5 & input.advanced",
                        popify(
-                         sliderInput("loesspan",  h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Loess span")), min = 0.05, max = 1, value = 0.15, step=0.05), 
-                         title = trloc("Loess span"), content = trloc("Loess span parameter"), placement = "right", trigger = 'focus', options = list(container = "body"))
+                         sliderInput("loesspan",  h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Loess span")), min = default.values$loesspan$min, max = default.values$loesspan$max, value = default.values$loesspan$value, step=default.values$loesspan$step), 
+                         title = trloc("Loess span"), content = trloc("Loess span parameter"), placement = "right", trigger = 'focus', options = list(container = "body")
+                       )
+      ),
+      conditionalPanel(condition = "input.transformation == 4 & input.advanced",
+                       popify(
+                         checkboxInput("smregressionoptimum", label = h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Optimum")), value = default.values$smregressionoptimum)
+                         , title = trloc("Optimum"), content = trloc("Check this tickbox if you want SM to chose the optimum smoothing parameter"), placement = "right", trigger = 'focus', options = list(container = "body")
+                       )
+      ),
+      conditionalPanel(condition = "input.transformation == 4 & input.advanced & !input.smregressionoptimum",
+                       popify(
+                         sliderInput("smregressionsmoothing",  h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Smoothing parameter")), min = default.values$smregressionsmoothing$min, max = default.values$smregressionsmoothing$max, value = default.values$smregressionsmoothing$value, step=default.values$smregressionsmoothing$step), 
+                         title = trloc("Smoothing parameter"), content = trloc("Smoothing parameter of the smoothing regression"), placement = "right", trigger = 'focus', options = list(container = "body")
+                       )
       )
     )
   })
@@ -5387,36 +5507,36 @@ shinyServer(function(input, output, session) {
     # names(waves.list)<-trloc(c("One wave/season", "Two waves/season (observed)", "Two waves/season (expected)", "Multiple waves/series"))
     fluidRow(
       popify(
-        selectInput("waves", h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Waves detection")), size=1, selectize = FALSE, choices = waves.list, selected = 1)
-        , title = trloc("Waves detection"), content = trloc("Select the number of waves in the original data"),                            placement = "right", trigger = 'focus', options = list(container = "body")),
+        selectInput("waves", h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Waves detection")), size=1, selectize = FALSE, choices = waves.list, selected = default.values$waves)
+        , title = trloc("Waves detection"), content = trloc("Select the number of waves in the original data or the algorith to separate diferent waves"),                            placement = "right", trigger = 'focus', options = list(container = "body")),
       conditionalPanel(condition = "(input.waves == 2 | input.waves == 3) & input.advanced",
                        popify(
-                         sliderInput("twowavesproportion",  h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Minimum proportion")), min = 0, max = 100, value = 0, step=5), 
+                         sliderInput("twowavesproportion",  h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Minimum proportion")), min = default.values$twowavesproportion$min, max = default.values$twowavesproportion$max, value = default.values$twowavesproportion$value, step=default.values$twowavesproportion$step), 
                          title = trloc("Minimum proportion"), content = trloc("Minimum proportion of one of the waves to be considered as different from the other one, otherwise, both waves are considered to be the same"), placement = "right", trigger = 'focus', options = list(container = "body"))
       ),
       conditionalPanel(condition = "input.waves == 4 & input.experimental & input.advanced",
                        fluidRow(
                          column(6,
                                 popify(
-                                  numericInput("numberwaves", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("No. waves")), value = 0, min = 0, max = NA, step=1)
+                                  numericInput("numberwaves", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("No. waves")), value = default.values$numberwaves$value, min = default.values$numberwaves$min, max = default.values$numberwaves$max, step=default.values$numberwaves$step)
                                   , title = trloc("No. waves"), content = trloc("Total number of waves of the whole dataset, set it to 0 if you want the program to autodetect it"), placement = "right", trigger = 'focus', options = list(container = "body"))
                          ),
                          column(6,
                                 popify(
-                                  numericInput("wavesseparation", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Separation")), value = 1, min = 0, max = NA, step=1)
+                                  numericInput("wavesseparation", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Separation")), value = default.values$wavesseparation$value, min = default.values$wavesseparation$min, max = default.values$wavesseparation$max, step=default.values$wavesseparation$step)
                                   , title = trloc("Separation"), content = trloc("Minimum separation between two seasons to be considered different"), placement = "right", trigger = 'focus', options = list(container = "body"))
                          )
                        ),
                        fluidRow(
                          column(6,
                                 popify(
-                                  numericInput("wavesparam1", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Param 1")), value = 3, min = 0.5, max = 10, step=0.1)
-                                  , title = trloc("Param 1"), content = trloc("Multiple waves algorith parameter 1"), placement = "right", trigger = 'focus', options = list(container = "body"))
+                                  numericInput("wavesparam1", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Param. 1")), value = default.values$wavesparam1$value, min = default.values$wavesparam1$min, max = default.values$wavesparam1$max, step=default.values$wavesparam1$step)
+                                  , title = trloc("Param. 1"), content = trloc("Multiple waves algorith parameter 1: when a rate is decided not to belong to an epidemic"), placement = "right", trigger = 'focus', options = list(container = "body"))
                          ),
                          column(6,
                                 popify(
-                                  numericInput("wavesparam2", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Param 2")), value = 2, min = 0.5, max = 10, step=0.1)
-                                  , title = trloc("Param 2"), content = trloc("Multiple waves algorith parameter 2"), placement = "right", trigger = 'focus', options = list(container = "body"))
+                                  numericInput("wavesparam2", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Param. 2")), value = default.values$wavesparam2$value, min = default.values$wavesparam2$min, max = default.values$wavesparam2$max, step=default.values$wavesparam2$step)
+                                  , title = trloc("Param. 2"), content = trloc("Multiple waves algorith parameter 2: when a set of rates is decided not to form an independent epidemic"), placement = "right", trigger = 'focus', options = list(container = "body"))
                          )
                        )
       )
@@ -5425,7 +5545,7 @@ shinyServer(function(input, output, session) {
   
   output$uiprocess = renderUI({
     popify(
-      checkboxInput("processdata", label = h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Process data")), value = TRUE)
+      checkboxInput("processdata", label = h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Process data")), value = default.values$processdata)
       , title = trloc("Process data"), content = trloc("Check this tickbox if you want to process input data, rearrange weeks acording to the first/last week selection and join seasons divided in the input dataset"), placement = "right", trigger = 'focus', options = list(container = "body"))
   })
   
@@ -5520,48 +5640,54 @@ shinyServer(function(input, output, session) {
   
   output$uiTextoptions = renderUI({
     shinydashboard::box(
-      title=trloc("Text options"), status = "primary", solidHeader = TRUE, width = 12,  background = "black", collapsible = TRUE, collapsed=TRUE,
+      title=p(trloc("Text options"), actionButton("resetuiTextoptions", trloc("Reset"))), 
+      status = "primary", solidHeader = TRUE, width = 12,  background = "black", collapsible = TRUE, collapsed=TRUE,
       popify(
-        textInput("textMain", label = h6(trloc("Main title"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), value = trloc("Main title"))
+        textInput("textMain", label = h6(trloc("Main title"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), value = trloc(default.values$textMain))
         , title = trloc("Main title"), content = trloc("Change the main title in most graphs"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        textInput("textY", label = h6(trloc("Y-axis"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), value = trloc("Y-axis"))
+        textInput("textY", label = h6(trloc("Y-axis"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), value = trloc(default.values$textY))
         , title = trloc("Y-axis"), content = trloc("Change the y-axis label in most graphs"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        textInput("textX", label = h6(trloc("X-axis"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), value = trloc("X-axis"))
+        textInput("textX", label = h6(trloc("X-axis"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), value = trloc(default.values$textX))
         , title = trloc("X-axis"), content = trloc("Change the x-axis label in most graphs"), placement = "left", trigger = 'focus', options = list(container = "body"))
     )
   })
   
   output$uiGraphoptions = renderUI({
+    colObservedLines.list<-as.list(c("default",colors()))
+    names(colObservedLines.list)<-c(trloc("default"),colors())
+    colThresholds.list<-as.list(c("default",rownames(brewer.pal.info),colors()))
+    names(colThresholds.list)<-c(trloc("default"),rownames(brewer.pal.info),colors())
     shinydashboard::box(
-      title=trloc("Graph options"), status = "primary", solidHeader = TRUE, width = 12,  background = "black", collapsible = TRUE, collapsed=TRUE,
+      title=p(trloc("Graph options"), actionButton("resetuiGraphoptions", trloc("Reset"))),
+      status = "primary", solidHeader = TRUE, width = 12,  background = "black", collapsible = TRUE, collapsed=TRUE,
       popify(
-        selectInput("colObservedLines", h6(trloc("Observed (line)"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = c("default",colors()), size=1, selectize = FALSE, selected = "default")
+        selectInput("colObservedLines", h6(trloc("Observed (line)"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = colObservedLines.list, size=1, selectize = FALSE, selected = default.values$colObservedLines)
         , title = trloc("Observed (line)"), content = trloc("Color of the line of observed data"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        selectInput("colObservedPoints", h6(trloc("Observed (points)"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = c("default",colors()), size=1, selectize = FALSE, selected = "default")
+        selectInput("colObservedPoints", h6(trloc("Observed (points)"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = colObservedLines.list, size=1, selectize = FALSE, selected = default.values$colObservedPoints)
         , title = trloc("Observed (points)"), content = trloc("Color of the points of observed data"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        selectInput("colEpidemicStart", h6(trloc("Epidemic start"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = c("default",colors()), size=1, selectize = FALSE, selected = "default")
+        selectInput("colEpidemicStart", h6(trloc("Epidemic start"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = colObservedLines.list, size=1, selectize = FALSE, selected = default.values$colEpidemicStart)
         , title = trloc("Epidemic start"), content = trloc("Color of the point of the epidemic start marker"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        selectInput("colEpidemicStop", h6(trloc("Epidemic end"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = c("default",colors()), size=1, selectize = FALSE, selected = "default")
+        selectInput("colEpidemicStop", h6(trloc("Epidemic end"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = colObservedLines.list, size=1, selectize = FALSE, selected = default.values$colEpidemicStop)
         , title = trloc("Epidemic end"), content = trloc("Color of the point of the epidemic end marker"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        selectInput("colThresholds", h6(trloc("Thresholds palette"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = c("default",rownames(brewer.pal.info),colors()), size=1, selectize = FALSE, selected = "default")
+        selectInput("colThresholds", h6(trloc("Thresholds palette"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = colThresholds.list, size=1, selectize = FALSE, selected = default.values$colThresholds)
         , title = trloc("Thresholds palette"), content = trloc("Palette used to generate color for epidemic and intensity thresholds"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        selectInput("colLevels", h6(trloc("Levels palette"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = c("default",rownames(brewer.pal.info),colors()), size=1, selectize = FALSE, selected = "default")
+        selectInput("colLevels", h6(trloc("Levels palette"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = colThresholds.list, size=1, selectize = FALSE, selected = default.values$colLevels)
         , title = trloc("Levels palette"), content = trloc("Palette used to generate color for intensity levels"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        selectInput("colSeasons", h6(trloc("Seasons palette"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = c("default",rownames(brewer.pal.info),colors()), size=1, selectize = FALSE, selected = "default")
+        selectInput("colSeasons", h6(trloc("Seasons palette"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = colThresholds.list, size=1, selectize = FALSE, selected = default.values$colSeasons)
         , title = trloc("Seasons palette"), content = trloc("Palette used to generate the colors of the lines of the series graphs and other graphs with multiple lines"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        selectInput("colEpidemic", h6(trloc("Timing palette"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = c("default",rownames(brewer.pal.info),colors()), size=1, selectize = FALSE, selected = "default")
+        selectInput("colEpidemic", h6(trloc("Timing palette"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = colThresholds.list, size=1, selectize = FALSE, selected = default.values$colEpidemic)
         , title = trloc("Timing palette"), content = trloc("Palette used to generate the colors of the points of pre, epidemic and post markers in timing graphs"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        checkboxInput("yaxis0", label = h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("y-axis starts at 0")), value = TRUE)
+        checkboxInput("yaxis0", label = h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("y-axis starts at 0")), value = default.values$yaxis0)
         , title = trloc("y-axis starts at 0"), content = trloc("Force y-axis to start at 0 for all plots"), placement = "left", trigger = 'focus', options = list(container = "body"))
     )
   })
@@ -5583,50 +5709,51 @@ shinyServer(function(input, output, session) {
                                    "Highest 8-weeks period", "Highest 9-weeks period", "Highest 10-weeks period", "Highest 11-weeks period", "Highest 12-weeks period", "Highest 13-weeks period", "Highest 14-weeks period", "Highest 15-weeks period"))
     
     shinydashboard::box(
-      title=trloc("MEM options"), status = "danger", solidHeader = FALSE, width = 12,  background = "navy", collapsible = TRUE, collapsed=TRUE,
+      title=p(trloc("MEM options"), actionButton("resetuiMEMoptions", label = trloc("Reset"))), 
+      status = "danger", solidHeader = FALSE, width = 12,  background = "navy", collapsible = TRUE, collapsed=TRUE,
       h4(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Timing")),
       popify(
-        selectInput("method", h6(trloc("Method for timing"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = method.list, size=1, selectize = FALSE, selected = 2)
+        selectInput("method", h6(trloc("Method for timing"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = method.list, size=1, selectize = FALSE, selected = default.values$method)
         , title = trloc("Method for timing"), content = trloc("<b>Original</b>: uses the process shown in the original paper.<br><b>Fixed criterium</b>: uses the slope of the MAP curve fo find the optimum, which is the point where the slope is lower than a predefined value.<br><b>Slope</b>: calculates the slope of the MAP curve, but the optimum is the one that matches the global mean slope.<br><b>Second derivative</b>: calculates the second derivative and equals to zero to search an inflexion point in the original curve"), placement = "left", trigger = 'focus', options = list(container = "body")
       ),
       conditionalPanel(condition = "input.method == 2",
                        popify(
-                         numericInput("param", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Slope parameter")), 2.8, min = 0.5, max = 10, step=0.1)
+                         numericInput("param", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Slope parameter")), value = default.values$param$value, min = default.values$param$min, max = default.values$param$max, step=default.values$param$step)
                          , title = trloc("Slope parameter"), content = trloc("Slope parameter used in fixed criterium method"), placement = "left", trigger = 'focus', options = list(container = "body"))
       ),
       h4(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Thresholds")),
       fluidRow(
         column(6,
                popify(
-                 selectInput("nvalues", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Values per season")), choices = nvalues.list, size=1, selectize = FALSE, selected = -1)
+                 selectInput("nvalues", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Values per season")), choices = nvalues.list, size=1, selectize = FALSE, selected = default.values$nvalues)
                  , title = trloc("Values per season"), content = trloc("Number of values taken each season for calculate thresholds. If -1, a total of 30 points are used (30/numberofseasons). If 0, all available points are used"), placement = "left", trigger = 'focus', options = list(container = "body"))
         ),
         column(6,
                popify(
-                 numericInput("ntails", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Tails")), 1, min = 1, max = 2, step=1)
+                 numericInput("ntails", h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Tails")), value = default.values$ntails$value, min = default.values$ntails$min, max = default.values$ntails$max, step=default.values$ntails$step)
                  , title = trloc("Tails"), content = trloc("Choose if you want to use one-tailed or two-tailed confidence intervals for thresholds"), placement = "left", trigger = 'focus', options = list(container = "body"))
         )
       ),
       popify(
-        selectInput("typethreshold", h6(trloc("Epidemic threshold"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = type.list, size=1, selectize = FALSE, selected = 5)
+        selectInput("typethreshold", h6(trloc("Epidemic threshold"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = type.list, size=1, selectize = FALSE, selected = default.values$typethreshold)
         , title = trloc("Epidemic threshold"), content = trloc("Method for calculating the epidemic threshold"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        selectInput("typeintensity", h6(trloc("Intensity thresholds"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = type.list, size=1, selectize = FALSE, selected = 6)
+        selectInput("typeintensity", h6(trloc("Intensity thresholds"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = type.list, size=1, selectize = FALSE, selected = default.values$typeintensity)
         , title = trloc("Intensity thresholds"), content = trloc("Method for calculating the intensity threshold"), placement = "left", trigger = 'focus', options = list(container = "body")),
       fluidRow(
         column(4,
                popify(
-                 numericInput("levelintensitym", h6(trloc("Medium lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 40, min = 0.5, max = 99.5, step=0.5)
+                 numericInput("levelintensitym", h6(trloc("Medium lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), value = default.values$levelintensitym$value, min = default.values$levelintensitym$min, max = default.values$levelintensitym$max, step=default.values$levelintensitym$step)
                  , title = trloc("Medium lvl"), content = trloc("Level of the confidence interval used to calculate the medium threshold"), placement = "left", trigger = 'focus', options = list(container = "body"))
         ),
         column(4,
                popify(
-                 numericInput("levelintensityh", h6(trloc("High lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 90, min = 0.5, max = 99.5, step=0.5)
+                 numericInput("levelintensityh", h6(trloc("High lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), value = default.values$levelintensityh$value, min = default.values$levelintensityh$min, max = default.values$levelintensityh$max, step=default.values$levelintensityh$step)
                  , title = trloc("High lvl"), content = trloc("Level of the confidence interval used to calculate the high threshold"), placement = "left", trigger = 'focus', options = list(container = "body"))
         ),
         column(4,
                popify(
-                 numericInput("levelintensityv", h6(trloc("Very high lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 97.5, min = 0.5, max = 99.5, step=0.5)
+                 numericInput("levelintensityv", h6(trloc("Very high lvl"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), value = default.values$levelintensityv$value, min = default.values$levelintensityv$min, max = default.values$levelintensityv$max, step=default.values$levelintensityv$step)
                  , title = trloc("Very high lvl"), content = trloc("Level of the confidence interval used to calculate the very high threshold"), placement = "left", trigger = 'focus', options = list(container = "body"))
         )
       ),
@@ -5634,32 +5761,32 @@ shinyServer(function(input, output, session) {
       fluidRow(
         column(6,
                popify(
-                 selectInput("validation", h6(trloc("Validation"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = validation.list, size=1, selectize = FALSE, selected = "cross")
+                 selectInput("validation", h6(trloc("Validation"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = validation.list, size=1, selectize = FALSE, selected = default.values$validation)
                  , title = trloc("Validation"), content = trloc("Cross: Extracts one season and the model is calculated with the remaining seasons.<br>Sequential: Extract a season and the model is calculated with previous seasons only"), placement = "left", trigger = 'focus', options = list(container = "body"))
         ),
         column(6,
                popify(
-                 selectInput("optimmethod", h6(trloc("Optimization method"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = optimmethod.list, size=1, selectize = FALSE, selected = "matthews")
+                 selectInput("optimmethod", h6(trloc("Optimization method"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = optimmethod.list, size=1, selectize = FALSE, selected = default.values$optimmethod)
                  , title = trloc("Optimization method"), content = trloc("Method to choose the optimum parameter"), placement = "left", trigger = 'focus', options = list(container = "body"))
         )
       ),
       popify(
-        sliderInput("paramrange", label = h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Parameter range")), min = 0.1, max = 10, value = c(2, 4), step=0.1)
+        sliderInput("paramrange", label = h6(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Parameter range")), value = default.values$paramrange$value, min = default.values$paramrange$min, max = default.values$paramrange$max, step=default.values$paramrange$step)
         , title = trloc("Parameter range"), content = trloc("Range of possible of values of the slope parameter used by goodness and optimize functions"), placement = "left", trigger = 'focus', options = list(container = "body")
       ),
       h4(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Other")),
       popify(
-        selectInput("typecurve", h6(trloc("Average curve CI."), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = type.list, size=1, selectize = FALSE, selected = 2)
+        selectInput("typecurve", h6(trloc("Average curve CI."), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = type.list, size=1, selectize = FALSE, selected = default.values$typecurve)
         , title = trloc("Average curve CI."), content = trloc("Method for calculating the average curve confidence intervals"), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        selectInput("typeother", h6(trloc("Other CI."), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = type.list, size=1, selectize = FALSE, selected = 3)
+        selectInput("typeother", h6(trloc("Other CI."), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = type.list, size=1, selectize = FALSE, selected = default.values$typeother)
         , title = trloc("Other CI."), content = trloc("Method for calculating other confidence intervals: duration, epidemic percentage, epidemic start, etc."), placement = "left", trigger = 'focus', options = list(container = "body")),
       popify(
-        numericInput("levelaveragecurve", h6(trloc("Average curve/Other CI. level"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), 95.0, min = 0.5, max = 99.5, step=0.5)
+        numericInput("levelaveragecurve", h6(trloc("Average curve/Other CI. level"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), value = default.values$levelaveragecurve$value, min = default.values$levelaveragecurve$min, max = default.values$levelaveragecurve$max, step=default.values$levelaveragecurve$step)
         , title = trloc("Average curve/Other CI. level"), content = trloc("Level of the confidence interval used to calculate the average curve and other intervals"), placement = "left", trigger = 'focus', options = list(container = "body")),
       conditionalPanel(condition = "input.advanced",
                        popify(
-                         selectInput("centering", h6(trloc("Centering seasons"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = centering.list, size=1, selectize = FALSE, selected = -1)
+                         selectInput("centering", h6(trloc("Centering seasons"), tags$style(type = "text/css", "#q1 {vertical-align: top;}")), choices = centering.list, size=1, selectize = FALSE, selected =  default.values$centering)
                          , title = trloc("Centering seasons"), content = trloc("Method for centering seasons to calculate the average curve"), placement = "left", trigger = 'focus', options = list(container = "body"))
       )
     )
@@ -5672,12 +5799,17 @@ shinyServer(function(input, output, session) {
       h5(a(trloc("Technical manual"), href="https://drive.google.com/file/d/0B0IUo_0NhTOoX29zc2p5RmlBUWc/view?usp=sharing", target="_blank")),
       h5(a(trloc("Submit issues"), href="https://github.com/lozalojo/memapp/issues", target="_blank")),
       popify(
-        checkboxInput("advanced", label = h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Show advanced features")), value = FALSE)
+        checkboxInput("advanced", label = h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Show advanced features")), value = default.values$advanced)
         , title = trloc("Show advanced features"), content = trloc("Show advanced features of memapp"), placement = "left", trigger = 'focus', options = list(container = "body")
       ),
-      hidden(
+      hidden(popify(
+                         checkboxInput("showexperimental", label = h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Show the experimental features tickbox")), value = default.values$showexperimental)
+                         , title = trloc("Show the experimental features tickbox"), content = trloc("Show the experimental features tickbox"), placement = "left", trigger = 'focus', options = list(container = "body")
+                       )
+      ),
+      conditionalPanel(condition = "input.showexperimental",
         popify(
-          checkboxInput("experimental", label = h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Show experimental features")), value = FALSE)
+          checkboxInput("experimental", label = h5(tags$style(type = "text/css", "#q1 {vertical-align: top;}"), trloc("Show experimental features")), value = default.values$experimental)
           , title = trloc("Show experimental features"), content = trloc("Show experimental features of memapp"), placement = "left", trigger = 'focus', options = list(container = "body")
         )
       )
