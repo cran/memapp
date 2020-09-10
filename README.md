@@ -118,7 +118,7 @@ https://cran.r-project.org/package=memapp
 memapp *official server*
 
 ```
-www.memwebapp.com
+http://memapp.iecscyl.com:8080/
 ```
 
 ## Technical manual
